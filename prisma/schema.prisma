@@ -6,11 +6,77 @@ datasource db {
   provider = "postgresql"
 }
 
+enum UserRole {
+  USER // Cliente normal
+  ADMIN // Admin
+  OPERATOR_BO // Empleado en Bolivia (Valida depósitos)
+  OPERATOR_PE // Empleado en Perú (Valida tesorería)
+}
+
+enum KycStatus {
+  UNVERIFIED // Recién registrado
+  PENDING // Subió documentos, espera revisión
+  VERIFIED // Aprobado (Puede comprar/vender)
+  REJECTED // Documentos inválidos
+  BLACKLISTED // Bloqueado por seguridad/OFAC
+}
+
+enum Country {
+  BOLIVIA
+  PERU
+}
+
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  name      String?
-  password  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String  @id @default(uuid())
+  email       String  @unique
+  password    String
+  //Datos Personales usuario
+  firstName   String
+  lastName    String
+  phoneNumber String?
+  country     Country @default(BOLIVIA)
+
+  //Datos Blockchain & financieros
+
+  walletAddress String?   @unique
+  kycStatus     KycStatus @default(UNVERIFIED)
+
+  //Auditoria
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  lastLogin DateTime?
+
+  //Roles y permisos
+  role UserRole @default(USER)
+
+  //Relaciones
+  kycDocuments KycDocument[]
+  transactions Transaction[]
+
+  @@map("users")
+}
+
+model KycDocument {
+  id         String   @id @default(uuid())
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+  docType    String // e.g., "passport", "ID card"
+  docUrl     String // URL to the stored document
+  uploadedAt DateTime @default(now())
+
+  @@map("kyc_documents")
+}
+
+model Transaction {
+  id          String    @id @default(uuid())
+  user        User      @relation(fields: [userId], references: [id])
+  userId      String
+  type        String // e.g., "buy", "sell"
+  amount      Float
+  currency    String // e.g., "USD", "BTC"
+  status      String // e.g., "pending", "completed", "failed"
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@map("transactions")
 }
