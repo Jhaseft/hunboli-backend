@@ -1,34 +1,36 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Post, Body, UnauthorizedException, HttpCode, HttpStatus } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { CreateAuthDto } from './dto/create-auth.dto';
-import { UpdateAuthDto } from './dto/update-auth.dto';
+import { LoginDto } from './dto/login.dto';
+import { CreateUserDto } from '../users/dto/create-user.dto';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
-  @Post()
-  create(@Body() createAuthDto: CreateAuthDto) {
-    return this.authService.create(createAuthDto);
+  // 1. REGISTRO (Sign Up)
+  // Ruta: POST /auth/signup
+  @Post('signup')
+  async signup(@Body() createUserDto: CreateUserDto) {
+    // Llama al servicio que hashea la password y guarda en la BD
+    return this.authService.register(createUserDto);
   }
 
-  @Get()
-  findAll() {
-    return this.authService.findAll();
-  }
+  // 2. INICIO DE SESIÓN (Login)
+  // Ruta: POST /auth/login
+  @Post('login')
+  @HttpCode(HttpStatus.OK) // Cambiamos el código por defecto (201) a 200 OK
+  async login(@Body() loginDto: LoginDto) {
+    // A. Validar que el usuario existe y la contraseña es correcta
+    const user = await this.authService.validateUser(
+      loginDto.email,
+      loginDto.password
+    );
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.authService.findOne(+id);
-  }
+    if (!user) {
+      throw new UnauthorizedException('Credenciales inválidas (Email o contraseña incorrectos)');
+    }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateAuthDto: UpdateAuthDto) {
-    return this.authService.update(+id, updateAuthDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.authService.remove(+id);
+    // B. Si todo está bien, generamos y devolvemos el Token JWT
+    return this.authService.login(user);
   }
 }
