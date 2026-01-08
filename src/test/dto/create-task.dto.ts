@@ -2,7 +2,10 @@ import { IsString } from "class-validator";
 
 export class CreatetaskDto {
     @IsString()
-    name: string;
+    firstName: string;
+
+    @IsString()
+    lastName: string;
 
     @IsString()
     email: string;
