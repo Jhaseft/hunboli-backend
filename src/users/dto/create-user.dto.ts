@@ -14,11 +14,6 @@ export class CreateUserDto {
     @MinLength(6)
     password: string;
 
-    // 🔴 ANTES TENÍAS ESTO (causante del error):
-    // @IsString()
-    // name: string; 
-
-    // 🟢 CAMBIALO POR ESTO (lo que pide Prisma):
     @IsString()
     firstName: string;
 
@@ -31,4 +26,12 @@ export class CreateUserDto {
     @IsOptional()
     @IsString()
     walletAddress?: string;
+
+    @IsOptional()
+    @IsString()
+    resetPasswordToken?: string;
+
+    @IsOptional()
+    @IsString()
+    resetPasswordExpiry?: Date;
 }

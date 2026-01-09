@@ -45,6 +45,12 @@ export class UserEntity implements User {
     @ApiProperty({ required: false, nullable: true })
     lastLogin: Date | null;
 
+    @ApiProperty({ required: false, nullable: true })
+    resetPasswordToken: string | null;
+
+    @ApiProperty({ required: false, nullable: true })
+    resetPasswordExpiry: Date | null;
+
     // Constructor para facilitar la conversión
     constructor(partial: Partial<UserEntity>) {
         Object.assign(this, partial);
