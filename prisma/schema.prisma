@@ -47,7 +47,9 @@ model User {
   lastLogin DateTime?
 
   //Roles y permisos
-  role UserRole @default(USER)
+  role                UserRole  @default(USER)
+  resetPasswordToken  String?
+  resetPasswordExpiry DateTime?
 
   //Relaciones
   kycDocuments KycDocument[]
