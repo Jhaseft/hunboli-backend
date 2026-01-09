@@ -36,6 +36,12 @@ export class UsersService {
     });
   }
 
+  async findOneByResetToken(token: string): Promise<User | null> {
+    return this.prisma.user.findFirst({
+      where: { resetPasswordToken: token },
+    });
+  }
+
   // 3. BUSCAR POR ID (Usado para ver perfil)
   async findOneById(id: string): Promise<User | null> {
     return this.prisma.user.findUnique({

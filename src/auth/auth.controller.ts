@@ -33,4 +33,15 @@ export class AuthController {
     // B. Si todo está bien, generamos y devolvemos el Token JWT
     return this.authService.login(user);
   }
+
+  // 3. OLVIDÉ MI CONTRASEÑA
+  @Post('forgot-password')
+  async forgotPassword(@Body('email') email: string) {
+    return this.authService.forgotPassword(email);
+  }
+
+  @Post('reset-password')
+  async resetPassword(@Body() body: { token: string; newPassword: string }) {
+    await this.authService.resetPassword(body.token, body.newPassword);
+  }
 }
