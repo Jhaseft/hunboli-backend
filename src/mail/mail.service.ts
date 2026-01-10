@@ -5,8 +5,8 @@ import { MailerService } from '@nestjs-modules/mailer';
 export class MailService {
     constructor(private mailerService: MailerService) { }
 
-    async sendPasswordReset(email: string, token: string) {
-        const url = `http://localhost:3000/reset-password?token=${token}`;
+    async sendPasswordReset(email: string, resetLink: string) {
+        const url = resetLink;
 
         await this.mailerService.sendMail({
             to: email,
