@@ -1,4 +1,4 @@
-import { IsEmail, IsString, IsEnum, MinLength, IsOptional } from 'class-validator';
+import { IsEmail, IsString, IsEnum, MinLength, IsOptional, Matches } from 'class-validator';
 
 // Asegúrate de que este Enum coincida con tu schema.prisma
 export enum Country {
@@ -25,6 +25,9 @@ export class CreateUserDto {
 
     @IsOptional()
     @IsString()
+    @Matches(/^0x[a-fA-F0-9]{40}$/, {
+        message: 'La dirección de la billetera no es válida (debe ser formato Ethereum)'
+    })
     walletAddress?: string;
 
     @IsOptional()
