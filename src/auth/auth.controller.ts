@@ -2,6 +2,8 @@ import { Controller, Post, Body, UnauthorizedException, HttpCode, HttpStatus } f
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { CreateUserDto } from '../users/dto/create-user.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -36,12 +38,12 @@ export class AuthController {
 
   // 3. OLVIDÉ MI CONTRASEÑA
   @Post('forgot-password')
-  async forgotPassword(@Body('email') email: string) {
-    return this.authService.forgotPassword(email);
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(forgotPasswordDto.email);
   }
 
   @Post('reset-password')
-  async resetPassword(@Body() body: { token: string; newPassword: string }) {
+  async resetPassword(@Body() body: ResetPasswordDto) {
     await this.authService.resetPassword(body.token, body.newPassword);
   }
 }
