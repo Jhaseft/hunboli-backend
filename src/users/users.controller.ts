@@ -6,11 +6,15 @@ import {
   ClassSerializerInterceptor,
   NotFoundException,
   UseGuards,
-  Request
+  Request,
+  Body,
+  BadRequestException,
+  Patch
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UserEntity } from './entities/user.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'; // (Descomenta cuando tengas el Guard)
+import { User } from '@prisma/client';
 
 @Controller('users')
 @UseInterceptors(ClassSerializerInterceptor) // 🛡️ Oculta la password en la respuesta
@@ -33,5 +37,20 @@ export class UsersController {
     const user = await this.usersService.findOneById(id);
     if (!user) throw new NotFoundException('Usuario no encontrado');
     return new UserEntity(user);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('link-wallet')
+  async linkWallet(@Request() req, @Body() body: { walletAddress: string }) {
+    if (!body.walletAddress) {
+      throw new BadRequestException('La dirección de la billetera es obligatoria');
+    }
+    const updatedUser = await this.usersService.update(req.user.userId, {
+      walletAddress: body.walletAddress
+    });
+    return {
+      message: 'Billetera vinculada exitosamente',
+      wallet: updatedUser.walletAddress
+    };
   }
 }
