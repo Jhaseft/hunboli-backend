@@ -6,29 +6,35 @@ import {
   ClassSerializerInterceptor,
   NotFoundException,
   UseGuards,
-  Request,
   Body,
   BadRequestException,
-  Patch
+  Patch,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UserEntity } from './entities/user.entity';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'; // (Descomenta cuando tengas el Guard)
-import { User } from '@prisma/client';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { KycStatus, UserRole } from '@prisma/client';
+
+interface JwtUser {
+  userId: string;
+  email: string;
+  role: UserRole;
+  kycStatus: KycStatus;
+}
 
 @Controller('users')
-@UseInterceptors(ClassSerializerInterceptor) // 🛡️ Oculta la password en la respuesta
+@UseInterceptors(ClassSerializerInterceptor)
 export class UsersController {
-  constructor(private readonly usersService: UsersService) { }
+  constructor(private readonly usersService: UsersService) {}
 
   // Obtener mi propio perfil (Ruta Protegida)
   @UseGuards(JwtAuthGuard)
   @Get('profile')
-  async getProfile(@Request() req) {
-    // req.user viene del JWT decodificado
-    const user = await this.usersService.findOneById(req.user.userId);
-    if (!user) throw new NotFoundException('Usuario no encontrado');
-    return new UserEntity(user);
+  async getProfile(@CurrentUser() user: JwtUser) {
+    const foundUser = await this.usersService.findOneById(user.userId);
+    if (!foundUser) throw new NotFoundException('Usuario no encontrado');
+    return new UserEntity(foundUser);
   }
 
   // Obtener usuario por ID (Admin o público según tu lógica)
@@ -41,16 +47,21 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard)
   @Patch('link-wallet')
-  async linkWallet(@Request() req, @Body() body: { walletAddress: string }) {
+  async linkWallet(
+    @CurrentUser() user: JwtUser,
+    @Body() body: { walletAddress: string },
+  ) {
     if (!body.walletAddress) {
-      throw new BadRequestException('La dirección de la billetera es obligatoria');
+      throw new BadRequestException(
+        'La dirección de la billetera es obligatoria',
+      );
     }
-    const updatedUser = await this.usersService.update(req.user.userId, {
-      walletAddress: body.walletAddress
+    const updatedUser = await this.usersService.update(user.userId, {
+      walletAddress: body.walletAddress,
     });
     return {
       message: 'Billetera vinculada exitosamente',
-      wallet: updatedUser.walletAddress
+      wallet: updatedUser.walletAddress,
     };
   }
 }

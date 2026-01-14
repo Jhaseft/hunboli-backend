@@ -12,7 +12,7 @@ import { MailModule } from './mail/mail.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
-      isGlobal: true,  // Hace que ConfigModule esté disponible en toda la app(osea traer varibales de entorno)
+      isGlobal: true, // Hace que ConfigModule esté disponible en toda la app(osea traer varibales de entorno)
       envFilePath: '.env',
     }),
     PrismaModule,
@@ -40,9 +40,9 @@ import { MailModule } from './mail/mail.module';
         },
       },
     }),
-    MailModule
+    MailModule,
   ],
   controllers: [],
   providers: [],
 })
-export class AppModule { }
+export class AppModule {}
