@@ -27,4 +27,4 @@ import { MailModule } from 'src/mail/mail.module';
   providers: [AuthService, JwtStrategy], // Agregamos JwtStrategy aquí
   exports: [AuthService],
 })
-export class AuthModule { }
+export class AuthModule {}

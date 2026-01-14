@@ -10,7 +10,8 @@ async function bootstrap() {
   // Obtener el ConfigService
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT') ?? 4000;
-  const frontendUrl = configService.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
+  const frontendUrl =
+    configService.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
 
   //  Configurar CORS desde variables de entorno
   app.enableCors({
@@ -20,11 +21,13 @@ async function bootstrap() {
   });
 
   // Validación global mejorada
-  app.useGlobalPipes(new ValidationPipe({
-    whitelist: true,
-    forbidNonWhitelisted: true,
-    transform: true,
-  }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
 
   const config = new DocumentBuilder()
     .setTitle('API REST')

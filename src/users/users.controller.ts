@@ -9,7 +9,7 @@ import {
   Request,
   Body,
   BadRequestException,
-  Patch
+  Patch,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UserEntity } from './entities/user.entity';
@@ -19,7 +19,7 @@ import { User } from '@prisma/client';
 @Controller('users')
 @UseInterceptors(ClassSerializerInterceptor) // 🛡️ Oculta la password en la respuesta
 export class UsersController {
-  constructor(private readonly usersService: UsersService) { }
+  constructor(private readonly usersService: UsersService) {}
 
   // Obtener mi propio perfil (Ruta Protegida)
   @UseGuards(JwtAuthGuard)
@@ -43,14 +43,16 @@ export class UsersController {
   @Patch('link-wallet')
   async linkWallet(@Request() req, @Body() body: { walletAddress: string }) {
     if (!body.walletAddress) {
-      throw new BadRequestException('La dirección de la billetera es obligatoria');
+      throw new BadRequestException(
+        'La dirección de la billetera es obligatoria',
+      );
     }
     const updatedUser = await this.usersService.update(req.user.userId, {
-      walletAddress: body.walletAddress
+      walletAddress: body.walletAddress,
     });
     return {
       message: 'Billetera vinculada exitosamente',
-      wallet: updatedUser.walletAddress
+      wallet: updatedUser.walletAddress,
     };
   }
 }
