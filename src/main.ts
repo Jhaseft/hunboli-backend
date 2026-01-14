@@ -41,4 +41,4 @@ async function bootstrap() {
   console.log(` Servidor corriendo papitos yijuu http://localhost:${port}`);
   console.log(` Cors habilitado para este desgraciao: ${frontendUrl}`);
 }
-bootstrap();
+void bootstrap();

@@ -11,7 +11,7 @@ export class TestService {
   }
 
   async createTestServices(test: CreatetaskDto) {
-    const newUser = await this.prisma.user.create({
+    await this.prisma.user.create({
       data: test,
     });
     return {

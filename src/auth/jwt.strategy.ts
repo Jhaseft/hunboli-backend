@@ -2,6 +2,14 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { KycStatus, UserRole } from '@prisma/client';
+
+interface JwtPayload {
+  sub: string;
+  email: string;
+  role: UserRole;
+  kycStatus: KycStatus;
+}
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -9,13 +17,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      // 🔴 ANTES: configService.get<string>('JWT_SECRET') -> Podía ser undefined
-      // 🟢 AHORA: Usa getOrThrow
       secretOrKey: configService.getOrThrow<string>('JWT_SECRET'),
     });
   }
 
-  async validate(payload: any) {
+  validate(payload: JwtPayload) {
     return {
       userId: payload.sub,
       email: payload.email,
