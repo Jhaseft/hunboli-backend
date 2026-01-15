@@ -1,54 +1,26 @@
-# Build stage
-FROM node:20-alpine AS builder
+FROM node:24 AS builder
 
-WORKDIR /usr/src/app
+# Create app directory
+WORKDIR /app
 
-# Copy package files
+# A wildcard is used to ensure both package.json AND package-lock.json are copied
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Install all dependencies (including dev dependencies for build)
-RUN npm ci
+# Install app dependencies
+RUN npm install
+# Generate prisma client, leave out if generating in `postinstall` script
+RUN npx prisma generate
 
-# Copy source code
 COPY . .
 
-# Generate Prisma Client
-RUN npx prisma generate
-
-# Build the application
 RUN npm run build
 
-# Production stage
-FROM node:20-alpine AS production
+FROM node:24
 
-WORKDIR /usr/src/app
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/dist ./dist
 
-# Copy package files
-COPY package*.json ./
-COPY prisma ./prisma/
-
-# Install only production dependencies
-RUN npm ci --only=production
-
-# Generate Prisma Client for production
-RUN npx prisma generate
-
-# Copy built application from builder stage
-COPY --from=builder /usr/src/app/dist ./dist
-
-# Create non-root user for security
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nestjs -u 1001
-
-# Change ownership of the app directory
-RUN chown -R nestjs:nodejs /usr/src/app
-
-# Switch to non-root user
-USER nestjs
-
-# Expose the application port
 EXPOSE 3000
-
-# Start the application
-CMD ["node", "dist/main.js"]
+CMD ["npm", "run", "start:prod"]
