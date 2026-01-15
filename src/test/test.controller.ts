@@ -5,18 +5,18 @@ import { CreatetaskDto } from './dto/create-task.dto';
 
 @Controller()
 export class TestController {
-    constructor(
-        private testService: TestService,
-        private configService: ConfigService
-    ) { }
+  constructor(
+    private testService: TestService,
+    private configService: ConfigService,
+  ) {}
 
-    @Get('/test')
-    async getTest() {
-        return await this.testService.getTestService();
-    }
+  @Get('/test')
+  async getTest() {
+    return await this.testService.getTestService();
+  }
 
-    @Post('/test')
-    async createTest(@Body() test: CreatetaskDto) {
-        return await this.testService.createTestServices(test);
-    }
+  @Post('/test')
+  async createTest(@Body() test: CreatetaskDto) {
+    return await this.testService.createTestServices(test);
+  }
 }

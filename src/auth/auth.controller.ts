@@ -1,4 +1,11 @@
-import { Controller, Post, Body, UnauthorizedException, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UnauthorizedException,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { CreateUserDto } from '../users/dto/create-user.dto';
@@ -7,7 +14,7 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) { }
+  constructor(private readonly authService: AuthService) {}
 
   // 1. REGISTRO (Sign Up)
   // Ruta: POST /auth/signup
@@ -25,11 +32,13 @@ export class AuthController {
     // A. Validar que el usuario existe y la contraseña es correcta
     const user = await this.authService.validateUser(
       loginDto.email,
-      loginDto.password
+      loginDto.password,
     );
 
     if (!user) {
-      throw new UnauthorizedException('Credenciales inválidas (Email o contraseña incorrectos)');
+      throw new UnauthorizedException(
+        'Credenciales inválidas (Email o contraseña incorrectos)',
+      );
     }
 
     // B. Si todo está bien, generamos y devolvemos el Token JWT

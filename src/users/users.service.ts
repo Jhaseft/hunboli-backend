@@ -1,11 +1,15 @@
-import { Injectable, ConflictException, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { User, Prisma } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
   // 1. CREAR USUARIO (Usado por AuthService en el registro)
 
   async create(data: CreateUserDto): Promise<User> {
@@ -22,7 +26,9 @@ export class UsersService {
       // Manejo de error si el email ya existe (Prisma lanza código P2002)
       if (error instanceof Prisma.PrismaClientKnownRequestError) {
         if (error.code === 'P2002') {
-          throw new ConflictException('El correo electrónico ya está registrado.');
+          throw new ConflictException(
+            'El correo electrónico ya está registrado.',
+          );
         }
       }
       throw new InternalServerErrorException('Error al crear el usuario.');
