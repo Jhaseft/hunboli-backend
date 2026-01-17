@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { CreateUserDto } from '../users/dto/create-user.dto';
+import { Country, CreateUserDto } from '../users/dto/create-user.dto';
 import { v4 as uuidv4 } from 'uuid';
 import { UserEntity } from '../users/entities/user.entity';
 import { ConfigService } from '@nestjs/config';
@@ -111,5 +111,37 @@ export class AuthService {
       resetPasswordToken: null, // Importante limpiar
       resetPasswordExpiry: null, // Importante limpiar
     });
+  }
+
+
+  // auth.service.ts
+
+  async validateUserByGoogle(profile: any) {
+    // 1. Buscamos si ya existe por email
+    const user = await this.usersService.findOneByEmail(profile.email);
+    if (user) {
+      // Si existe, retornamos el usuario para que genere el token
+      return user;
+    }
+
+    // 2. Si NO existe, lo creamos
+    console.log('Creando usuario nuevo desde Google...');
+
+    const newUser = await this.usersService.create({
+      email: profile.email,
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      password: '', // Ojo: Asegúrate que tu prisma schema permita password opcional o maneja esto.
+      isGoogleAccount: true, // (Opcional) Útil para saber que no debe pedir cambio de pass
+      country: Country.BOLIVIA, // O algún valor por defecto o lógica para asignar país
+    });
+
+    return newUser;
+  }
+
+  // Reutiliza tu método login existente para generar el JWT
+  async googleLogin(user: any) {
+    // Llama a tu lógica de generar JWT que ya tienes
+    return this.login(user);
   }
 }

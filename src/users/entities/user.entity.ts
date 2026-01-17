@@ -50,6 +50,9 @@ export class UserEntity implements User {
   @Exclude()
   resetPasswordExpiry: Date | null;
 
+  @ApiProperty({ nullable: true })
+  isGoogleAccount: boolean;
+
   constructor(partial: Partial<UserEntity>) {
     Object.assign(this, partial);
   }

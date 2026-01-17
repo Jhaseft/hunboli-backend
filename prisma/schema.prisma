@@ -46,6 +46,9 @@ model User {
   updatedAt DateTime  @updatedAt
   lastLogin DateTime?
 
+  //Google
+  isGoogleAccount Boolean? @default(false)
+
   //Roles y permisos
   role                UserRole  @default(USER)
   resetPasswordToken  String?
