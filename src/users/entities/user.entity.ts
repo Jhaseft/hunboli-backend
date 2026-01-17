@@ -1,9 +1,8 @@
-import { User, KycStatus, Country, UserRole } from '@prisma/client'; // Importas los tipos nativos de Prisma
-import { Exclude } from 'class-transformer'; // 👈 ¡ESTO ES CLAVE!
+import { User, KycStatus, Country, UserRole } from '@prisma/client';
+import { Exclude } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class UserEntity implements User {
-  // Copiamos los campos de Prisma para tener control sobre ellos
 
   @ApiProperty()
   id: string;
@@ -11,7 +10,7 @@ export class UserEntity implements User {
   @ApiProperty()
   email: string;
 
-  // 🔒 SEGURIDAD: Con @Exclude, este campo NUNCA saldrá de tu API hacia el frontend
+  // ✅ CORRECTO: Excluimos el password
   @Exclude()
   password: string;
 
@@ -33,7 +32,7 @@ export class UserEntity implements User {
   @ApiProperty({ enum: KycStatus })
   kycStatus: KycStatus;
 
-  @ApiProperty({ enum: UserRole }) // Asumiendo que agregaste roles
+  @ApiProperty({ enum: UserRole })
   role: UserRole;
 
   @ApiProperty()
@@ -45,13 +44,12 @@ export class UserEntity implements User {
   @ApiProperty({ required: false, nullable: true })
   lastLogin: Date | null;
 
-  @ApiProperty({ required: false, nullable: true })
+  @Exclude()
   resetPasswordToken: string | null;
 
-  @ApiProperty({ required: false, nullable: true })
+  @Exclude()
   resetPasswordExpiry: Date | null;
 
-  // Constructor para facilitar la conversión
   constructor(partial: Partial<UserEntity>) {
     Object.assign(this, partial);
   }
