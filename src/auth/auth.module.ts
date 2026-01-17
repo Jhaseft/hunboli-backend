@@ -1,16 +1,16 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
-import { UsersModule } from '../users/users.module'; // Importamos UsersModule
+import { UsersModule } from '../users/users.module';
 import { PassportModule } from '@nestjs/passport';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { JwtStrategy } from './jwt.strategy'; // Importamos la estrategia
+import { JwtStrategy } from './jwt.strategy';
 import { MailModule } from 'src/mail/mail.module';
 
 @Module({
   imports: [
-    UsersModule, // Necesario para usar UsersService
+    forwardRef(() => UsersModule),
     PassportModule,
     MailModule,
     // Configuración asíncrona del JWT (para leer .env)
@@ -27,4 +27,4 @@ import { MailModule } from 'src/mail/mail.module';
   providers: [AuthService, JwtStrategy], // Agregamos JwtStrategy aquí
   exports: [AuthService],
 })
-export class AuthModule {}
+export class AuthModule { }
