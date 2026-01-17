@@ -15,7 +15,7 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private mailService: MailService,
-  ) {}
+  ) { }
 
   async register(createUserDto: CreateUserDto) {
     //Encriptar la contraseña antes de guardar
@@ -57,6 +57,7 @@ export class AuthService {
         email: user.email,
         firstName: user.firstName,
         kycStatus: user.kycStatus,
+        walletAddress: user.walletAddress,
       },
     };
   }
