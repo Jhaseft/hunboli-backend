@@ -15,18 +15,22 @@ import { UserEntity } from './entities/user.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { KycStatus, UserRole } from '@prisma/client';
+import { LinkWalletDto } from './dto/link-wallet.dto';
+import { AuthService } from '../auth/auth.service';
 
 interface JwtUser {
   userId: string;
   email: string;
-  role: UserRole;
+  firstName: string;
   kycStatus: KycStatus;
 }
 
 @Controller('users')
 @UseInterceptors(ClassSerializerInterceptor)
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService,
+    private readonly authService: AuthService
+  ) { }
 
   // Obtener mi propio perfil (Ruta Protegida)
   @UseGuards(JwtAuthGuard)
@@ -49,19 +53,30 @@ export class UsersController {
   @Patch('link-wallet')
   async linkWallet(
     @CurrentUser() user: JwtUser,
-    @Body() body: { walletAddress: string },
+    @Body() body: LinkWalletDto,
   ) {
     if (!body.walletAddress) {
       throw new BadRequestException(
         'La dirección de la billetera es obligatoria',
       );
     }
+
+    // Verificar la contraseña antes de vincular la billetera
+    const validUser = await this.authService.validateUser(
+      user.email,
+      body.password,
+    );
+    if (!validUser) {
+      throw new BadRequestException('Contraseña incorrecta');
+    }
+    // Actualizar la dirección de la billetera en el perfil del usuario
     const updatedUser = await this.usersService.update(user.userId, {
       walletAddress: body.walletAddress,
     });
     return {
-      message: 'Billetera vinculada exitosamente',
-      wallet: updatedUser.walletAddress,
+      success: true,
+      message: 'Billetera vinculada correctamente',
+      walletAddress: updatedUser.walletAddress
     };
   }
 }
