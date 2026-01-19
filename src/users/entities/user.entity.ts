@@ -12,7 +12,7 @@ export class UserEntity implements User {
 
   // ✅ CORRECTO: Excluimos el password
   @Exclude()
-  password: string;
+  password: string | null;
 
   @ApiProperty()
   firstName: string;

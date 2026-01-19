@@ -19,6 +19,9 @@ export class AuthService {
 
   async register(createUserDto: CreateUserDto) {
     //Encriptar la contraseña antes de guardar
+    if (!createUserDto.password) {
+      throw new BadRequestException('La contraseña es requerida para el registro');
+    }
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
 
     const newUser = await this.usersService.create({
@@ -35,7 +38,8 @@ export class AuthService {
     pass: string,
   ): Promise<Omit<UserEntity, 'password'> | null> {
     const user = await this.usersService.findOneByEmail(email);
-    if (user && (await bcrypt.compare(pass, user.password))) {
+    // Si el usuario no tiene password (cuenta de Google), no puede hacer login con email/password
+    if (user && user.password && (await bcrypt.compare(pass, user.password))) {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { password: _, ...result } = user;
       return result;
