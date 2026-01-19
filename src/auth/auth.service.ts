@@ -48,6 +48,7 @@ export class AuthService {
   }
 
   login(user: Omit<UserEntity, 'password'>) {
+    this.usersService.updateLastLogin(user.id);
     const payload = {
       sub: user.id,
       email: user.email,
