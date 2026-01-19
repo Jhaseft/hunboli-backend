@@ -26,6 +26,35 @@ enum Country {
   PERU
 }
 
+enum FiatCurrency {
+  BOB 
+  PEN 
+}
+
+enum DepositStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  MINTED
+}
+
+enum TransactionType {
+  MINT
+  BURN
+  TRANSFER
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum Network {
+  BNB_CHAIN_MAINNET
+  BNB_CHAIN_TESTNET
+}
+
 model User {
   id          String  @id @default(uuid())
   email       String  @unique
@@ -54,6 +83,7 @@ model User {
   //Relaciones
   kycDocuments KycDocument[]
   transactions Transaction[]
+  deposits     Deposit[]  
 
   @@map("users")
 }
@@ -70,15 +100,49 @@ model KycDocument {
 }
 
 model Transaction {
-  id          String    @id @default(uuid())
-  user        User      @relation(fields: [userId], references: [id])
+  id          String            @id @default(uuid())
+  user        User              @relation(fields: [userId], references: [id])
   userId      String
-  type        String // e.g., "buy", "sell"
-  amount      Float
-  currency    String // e.g., "USD", "BTC"
-  status      String // e.g., "pending", "completed", "failed"
-  createdAt   DateTime  @default(now())
-  completedAt DateTime?
+  type        TransactionType
+  status      TransactionStatus @default(PENDING)
+  // red y hash on-chain
+  network     Network
+  txHash     String?           @unique
+  blockNumber Int?
+  confirmedAt DateTime?
+  amount      Decimal           @db.Decimal(36, 18)
+  deposit     Deposit?          @relation(fields: [depositId], references: [id])
+  depositId   String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime?         @updatedAt
 
   @@map("transactions")
+  @@index([userId, createdAt])
+  @@index([txHash])
+}
+
+model Deposit {
+  id            String        @id @default(uuid())
+  user          User          @relation(fields: [userId], references: [id])
+  userId        String
+  currency      FiatCurrency
+  amount        Float         //monto depositado (sin fee)
+  feeRate       Float         //comision fija 0.001 (0.1%)
+  serviceFee    Float         //amount * feeRate
+  totalAmount   Float         //amount + serviceFee
+  rateUsed      Float         // BOB: 1, PEN: PEN->BOB del momento
+  expectedBOBH  Float         // BOB: amount, PEN: amount * rateUsed
+  referenceCode String        @unique
+  status        DepositStatus @default(PENDING)
+  validatedById String?
+  validatedAt   DateTime?
+  mintTxHash    String?
+  mintedAt      DateTime?
+  createdAt     DateTime      @default(now())
+  processedAt   DateTime?     @updatedAt
+
+  //Relaciones
+  transactions Transaction[]
+
+  @@map("deposits")
 }
