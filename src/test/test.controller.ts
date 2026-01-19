@@ -1,21 +1,17 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { TestService } from './test.service';
 import { CreatetaskDto } from './dto/create-task.dto';
 
-@Controller()
+@Controller('test')
 export class TestController {
-  constructor(
-    private testService: TestService,
-    private configService: ConfigService,
-  ) {}
+  constructor(private testService: TestService){}
 
-  @Get('/test')
+  @Get()
   async getTest() {
     return await this.testService.getTestService();
   }
 
-  @Post('/test')
+  @Post()
   async createTest(@Body() test: CreatetaskDto) {
     return await this.testService.createTestServices(test);
   }
