@@ -5,6 +5,7 @@ import {
   MinLength,
   IsOptional,
   Matches,
+  IsBoolean,
 } from 'class-validator';
 
 // Asegúrate de que este Enum coincida con tu schema.prisma
@@ -19,7 +20,8 @@ export class CreateUserDto {
 
   @IsString()
   @MinLength(6)
-  password: string;
+  @IsOptional()
+  password?: string;
 
   @IsString()
   firstName: string;
@@ -45,4 +47,8 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   resetPasswordExpiry?: Date;
+
+  @IsOptional()
+  @IsBoolean()
+  isGoogleAccount?: boolean;
 }
