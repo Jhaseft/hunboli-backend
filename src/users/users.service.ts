@@ -9,7 +9,8 @@ import { User, Prisma } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+
+  constructor(private prisma: PrismaService) { }
   // 1. CREAR USUARIO (Usado por AuthService en el registro)
 
   async create(data: CreateUserDto): Promise<User> {
@@ -60,6 +61,13 @@ export class UsersService {
     return this.prisma.user.update({
       where: { id },
       data,
+    });
+  }
+  // 5. ACTUALIZAR ÚLTIMO LOGIN
+  async updateLastLogin(id: string) {
+    await this.prisma.user.update({
+      where: { id },
+      data: { lastLogin: new Date() },
     });
   }
 }

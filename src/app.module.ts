@@ -10,6 +10,7 @@ import { join } from 'path';
 import { MailModule } from './mail/mail.module';
 import { RatesModule } from './rates/rates.module';
 import { DepositsModule } from './deposits/deposits.module';
+import { BanksModule } from './banks/banks.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { DepositsModule } from './deposits/deposits.module';
     }),
     MailModule,
     DepositsModule,
+    BanksModule,
   ],
   controllers: [],
   providers: [],

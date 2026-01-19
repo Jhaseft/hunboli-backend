@@ -12,7 +12,7 @@ export class UserEntity implements User {
 
   // ✅ CORRECTO: Excluimos el password
   @Exclude()
-  password: string;
+  password: string | null;
 
   @ApiProperty()
   firstName: string;
@@ -49,6 +49,9 @@ export class UserEntity implements User {
 
   @Exclude()
   resetPasswordExpiry: Date | null;
+
+  @ApiProperty({ nullable: true })
+  isGoogleAccount: boolean | null;
 
   constructor(partial: Partial<UserEntity>) {
     Object.assign(this, partial);

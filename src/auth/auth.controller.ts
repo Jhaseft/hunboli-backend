@@ -5,16 +5,22 @@ import {
   UnauthorizedException,
   HttpCode,
   HttpStatus,
+  Get,
+  UseGuards,
+  Req,
+  Res,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { AuthGuard } from '@nestjs/passport';
+import type { Response } from 'express';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   // 1. REGISTRO (Sign Up)
   // Ruta: POST /auth/signup
@@ -54,5 +60,27 @@ export class AuthController {
   @Post('reset-password')
   async resetPassword(@Body() body: ResetPasswordDto) {
     await this.authService.resetPassword(body.token, body.newPassword);
+  }
+
+  @Get('google')
+  @UseGuards(AuthGuard('google'))
+  async googleAuth(@Req() req) { }
+
+  // 2. Google devuelve al usuario aquí
+  @Get('google/callback')
+  @UseGuards(AuthGuard('google'))
+  async googleAuthRedirect(@Req() req, @Res() res: Response) {
+    // req.user viene con el perfil de Google, necesitamos buscar/crear en BD
+    const user = await this.authService.validateUserByGoogle(req.user);
+    const data = await this.authService.googleLogin(user);
+
+    // 3. REDIRECCIÓN AL FRONTEND 🚀
+    // No podemos devolver JSON aquí porque el navegador está en medio de una redirección.
+    // Mandamos el token en la URL (Query Param) hacia tu Frontend.
+
+    // OJO: En producción, es mejor usar Cookies httpOnly, pero para MVP esto funciona.
+    res.redirect(
+      `${process.env.FRONTEND_URL}/auth/callback?token=${data.access_token}`
+    );
   }
 }

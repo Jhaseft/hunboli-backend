@@ -27,8 +27,8 @@ enum Country {
 }
 
 enum FiatCurrency {
-  BOB 
-  PEN 
+  BOB
+  PEN
 }
 
 enum DepositStatus {
@@ -58,7 +58,7 @@ enum Network {
 model User {
   id          String  @id @default(uuid())
   email       String  @unique
-  password    String
+  password    String?
   //Datos Personales usuario
   firstName   String
   lastName    String
@@ -75,15 +75,19 @@ model User {
   updatedAt DateTime  @updatedAt
   lastLogin DateTime?
 
+  //Google
+  isGoogleAccount Boolean? @default(false)
+
   //Roles y permisos
-  role                UserRole  @default(USER)
-  resetPasswordToken  String?
-  resetPasswordExpiry DateTime?
+  role                  UserRole  @default(USER)
+  resetPasswordToken    String?
+  resetPasswordExpiry   DateTime?
+  isOnboardingCompleted Boolean   @default(false)
 
   //Relaciones
   kycDocuments KycDocument[]
   transactions Transaction[]
-  deposits     Deposit[]  
+  deposits     Deposit[]
 
   @@map("users")
 }
@@ -107,7 +111,7 @@ model Transaction {
   status      TransactionStatus @default(PENDING)
   // red y hash on-chain
   network     Network
-  txHash     String?           @unique
+  txHash      String?           @unique
   blockNumber Int?
   confirmedAt DateTime?
   amount      Decimal           @db.Decimal(36, 18)
@@ -116,9 +120,23 @@ model Transaction {
   createdAt   DateTime          @default(now())
   updatedAt   DateTime?         @updatedAt
 
-  @@map("transactions")
   @@index([userId, createdAt])
   @@index([txHash])
+  @@map("transactions")
+}
+
+enum country_banks {
+  Bolivia
+  PERU
+}
+
+model Banks {
+  id          Int               @id @default(autoincrement())
+  name        String
+  country     country_banks
+  logo_url    String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime?         @updatedAt
 }
 
 model Deposit {
