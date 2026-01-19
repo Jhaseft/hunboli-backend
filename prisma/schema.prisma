@@ -79,9 +79,10 @@ model User {
   isGoogleAccount Boolean? @default(false)
 
   //Roles y permisos
-  role                UserRole  @default(USER)
-  resetPasswordToken  String?
-  resetPasswordExpiry DateTime?
+  role                  UserRole  @default(USER)
+  resetPasswordToken    String?
+  resetPasswordExpiry   DateTime?
+  isOnboardingCompleted Boolean   @default(false)
 
   //Relaciones
   kycDocuments KycDocument[]

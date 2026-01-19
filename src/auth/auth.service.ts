@@ -136,7 +136,7 @@ export class AuthService {
       email: profile.email,
       firstName: profile.firstName,
       lastName: profile.lastName,
-      password: '', // Ojo: Asegúrate que tu prisma schema permita password opcional o maneja esto.
+      password: '', // No se usa contraseña
       isGoogleAccount: true, // (Opcional) Útil para saber que no debe pedir cambio de pass
       country: Country.BOLIVIA, // O algún valor por defecto o lógica para asignar país
     });
