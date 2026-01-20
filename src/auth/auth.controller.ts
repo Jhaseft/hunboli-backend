@@ -73,14 +73,13 @@ export class AuthController {
     // req.user viene con el perfil de Google, necesitamos buscar/crear en BD
     const user = await this.authService.validateUserByGoogle(req.user);
     const data = await this.authService.googleLogin(user);
-
-    // 3. REDIRECCIÓN AL FRONTEND 🚀
-    // No podemos devolver JSON aquí porque el navegador está en medio de una redirección.
-    // Mandamos el token en la URL (Query Param) hacia tu Frontend.
-
-    // OJO: En producción, es mejor usar Cookies httpOnly, pero para MVP esto funciona.
-    res.redirect(
-      `${process.env.FRONTEND_URL}/auth/callback?token=${data.access_token}`
-    );
+    const isCompleted = data.user.isOnboardingCompleted;
+    if (isCompleted) {
+      // Usuario antiguo -> Al Dashboard directo
+      res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${data.access_token}&dest=/dashboard`);
+    } else {
+      // Usuario nuevo -> A completar perfil
+      res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${data.access_token}&dest=/complete-profile`);
+    }
   }
 }

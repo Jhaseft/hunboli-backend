@@ -3,7 +3,6 @@ import { Exclude } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class UserEntity implements User {
-
   @ApiProperty()
   id: string;
 
@@ -52,6 +51,9 @@ export class UserEntity implements User {
 
   @ApiProperty({ nullable: true })
   isGoogleAccount: boolean | null;
+
+  @ApiProperty()
+  isOnboardingCompleted: boolean;
 
   constructor(partial: Partial<UserEntity>) {
     Object.assign(this, partial);

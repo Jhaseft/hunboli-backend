@@ -12,7 +12,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
             callbackURL: config.get('GOOGLE_REDIRECT_URI') as string,
             scope: ['email', 'profile'], // Qué datos pedimos
         });
-    }
+    } 
 
     async validate(
         accessToken: string,

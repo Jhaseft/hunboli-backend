@@ -27,6 +27,7 @@ export class AuthService {
     const newUser = await this.usersService.create({
       ...createUserDto,
       password: hashedPassword,
+      isOnboardingCompleted: true,
     });
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...userWithoutPassword } = newUser;
@@ -63,6 +64,7 @@ export class AuthService {
         firstName: user.firstName,
         kycStatus: user.kycStatus,
         walletAddress: user.walletAddress,
+        isOnboardingCompleted: user.isOnboardingCompleted,
       },
     };
   }
@@ -136,9 +138,10 @@ export class AuthService {
       email: profile.email,
       firstName: profile.firstName,
       lastName: profile.lastName,
-      password: '', // Ojo: Asegúrate que tu prisma schema permita password opcional o maneja esto.
+      password: '', // No se usa contraseña
       isGoogleAccount: true, // (Opcional) Útil para saber que no debe pedir cambio de pass
       country: Country.BOLIVIA, // O algún valor por defecto o lógica para asignar país
+      isOnboardingCompleted: false,
     });
 
     return newUser;
