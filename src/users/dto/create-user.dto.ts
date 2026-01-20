@@ -51,4 +51,8 @@ export class CreateUserDto {
   @IsOptional()
   @IsBoolean()
   isGoogleAccount?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isOnboardingCompleted?: boolean;
 }

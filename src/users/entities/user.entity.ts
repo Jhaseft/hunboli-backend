@@ -53,6 +53,9 @@ export class UserEntity implements User {
   @ApiProperty({ nullable: true })
   isGoogleAccount: boolean | null;
 
+  @ApiProperty()
+  isOnboardingCompleted: boolean;
+
   constructor(partial: Partial<UserEntity>) {
     Object.assign(this, partial);
   }
