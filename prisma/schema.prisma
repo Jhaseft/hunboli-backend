@@ -91,6 +91,7 @@ model User {
   transactions Transaction[]
   deposits     Deposit[]
   bankAccounts BankAccount[]
+  depositsValidated Deposit[] @relation("DepositValidatedBy")
   @@map("users")
 }
 
