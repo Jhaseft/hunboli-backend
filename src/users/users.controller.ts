@@ -9,6 +9,7 @@ import {
   Body,
   BadRequestException,
   Patch,
+  Request,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UserEntity } from './entities/user.entity';
@@ -17,6 +18,8 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { KycStatus, UserRole } from '@prisma/client';
 import { LinkWalletDto } from './dto/link-wallet.dto';
 import { AuthService } from '../auth/auth.service';
+import { CompleteProfileDto } from './dto/complete-profile.dto';
+import * as bcrypt from 'bcrypt';
 
 interface JwtUser {
   userId: string;
@@ -77,6 +80,25 @@ export class UsersController {
       success: true,
       message: 'Billetera vinculada correctamente',
       walletAddress: updatedUser.walletAddress
+    };
+  }
+
+  @Patch('complete-profile')
+  @UseGuards(JwtAuthGuard)
+  async completeProfile(@CurrentUser() user: JwtUser, @Body() body: CompleteProfileDto) {
+    const hashedPassword = await bcrypt.hash(body.password, 10);
+
+    const updatedUser = await this.usersService.update(user.userId, {
+      password: hashedPassword,
+      phoneNumber: body.phoneNumber,
+      country: body.country,
+      isOnboardingCompleted: true
+    });
+
+    return {
+      success: true,
+      message: 'Perfil completado correctamente',
+      user: new UserEntity(updatedUser)
     };
   }
 }

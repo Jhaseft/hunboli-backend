@@ -20,7 +20,6 @@ export class UsersService {
         data: {
           ...data,
           kycStatus: 'UNVERIFIED', // Estado inicial por defecto
-          // walletAddress: null // (Opcional, inicia vacío)
         },
       });
     } catch (error) {
