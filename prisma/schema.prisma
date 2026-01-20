@@ -149,11 +149,11 @@ model Deposit {
   currency      FiatCurrency  //moneda 
   //Dinero depositado
   amount        Decimal       @db.Decimal(36, 18)         //monto depositado (sin fee)
-  feeRate       Decimal       @db.Decimal(36, 18)         //comision fija 0.001 (0.1%)
+  feeRate       Decimal       @db.Decimal(10, 6)         //comision fija 0.001 (0.1%)
   serviceFee    Decimal       @db.Decimal(36, 18)         //amount * feeRate
   totalAmount   Decimal       @db.Decimal(36, 18)         //amount + serviceFee
   //rate lock (para el PEN)
-  rateUsed      Decimal       @db.Decimal(36, 18)         // BOB: 1, PEN: PEN->BOB del momento
+  rateUsed      Decimal?       @db.Decimal(36, 18)         // BOB: 1, PEN: PEN->BOB del momento
   rateSource    String?
   rateQuotedAt  DateTime?
   rateExpiresAt DateTime?
@@ -175,7 +175,7 @@ model Deposit {
 
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
-  processedAt   DateTime?     @updatedAt
+  processedAt   DateTime?     
 
   //Relaciones
   transactions Transaction[]

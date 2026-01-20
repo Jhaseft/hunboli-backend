@@ -1,27 +1,36 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class RatesService {
-  constructor(private readonly config: ConfigService) {}
+  private cacheSeconds = Number(process.env.RATE_CACHE_SECONDS ?? '30');
+  private cached:
+    | { rate: Prisma.Decimal; source: string; updatedAt: Date; cacheSeconds: number }
+    | null = null;
 
-  getRates() {
-    const rateStr = this.config.get<string>('PEN_TO_BOB_RATE', '');
-    const penToBob = Number(rateStr);
+  async getPenToBobRate() {
+    const now = new Date();
 
-    if (!Number.isFinite(penToBob) || penToBob <= 0) {
+    if (this.cached) {
+      const ageMs = now.getTime() - this.cached.updatedAt.getTime();
+      if (ageMs < this.cacheSeconds * 1000) return this.cached;
+    }
+
+    // MVP: rate por ENV (luego lo conectas a API real)
+    const r = Number(process.env.PEN_TO_BOB_RATE ?? '0');
+    if (!Number.isFinite(r) || r <= 0) {
       throw new InternalServerErrorException(
         'PEN_TO_BOB_RATE inválido o no definido',
       );
     }
 
-    const bobToPen = 1 / penToBob;
-
-    return {
-      pen_to_bob: penToBob,
-      bob_to_pen: bobToPen,
-      updatedAt: new Date().toISOString(),
-      source: 'manual',
+    this.cached = {
+      rate: new Prisma.Decimal(r),
+      source: process.env.RATE_SOURCE ?? 'ENV',
+      updatedAt: now,
+      cacheSeconds: this.cacheSeconds,
     };
+
+    return this.cached;
   }
 }

@@ -6,7 +6,13 @@ export class RatesController {
   constructor(private readonly ratesService: RatesService) {}
 
   @Get()
-  getRates() {
-    return this.ratesService.getRates();
+  async getRates() {
+    const r = await this.ratesService.getPenToBobRate();
+    return {
+      pen_to_bob: r.rate.toString(),
+      source: r.source,
+      updatedAt: r.updatedAt.toISOString(),
+      cacheSeconds: r.cacheSeconds,
+    };
   }
 }
