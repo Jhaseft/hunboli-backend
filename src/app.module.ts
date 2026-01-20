@@ -8,8 +8,6 @@ import { MailerModule } from '@nestjs-modules/mailer';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
 import { join } from 'path';
 import { MailModule } from './mail/mail.module';
-import { RatesModule } from './rates/rates.module';
-import { DepositsModule } from './deposits/deposits.module';
 import { BanksModule } from './banks/banks.module';
 
 @Module({
@@ -18,7 +16,6 @@ import { BanksModule } from './banks/banks.module';
       isGlobal: true, // Hace que ConfigModule esté disponible en toda la app(osea traer varibales de entorno)
       envFilePath: '.env',
     }),
-    RatesModule,
     PrismaModule,
     TestModule,
     UsersModule,
@@ -45,7 +42,6 @@ import { BanksModule } from './banks/banks.module';
       },
     }),
     MailModule,
-    DepositsModule,
     BanksModule,
   ],
   controllers: [],
