@@ -34,6 +34,10 @@ export class CreateUserDto {
 
   @IsOptional()
   @IsString()
+  phoneNumber?: string;
+
+  @IsOptional()
+  @IsString()
   @Matches(/^0x[a-fA-F0-9]{40}$/, {
     message:
       'La dirección de la billetera no es válida (debe ser formato Ethereum)',
