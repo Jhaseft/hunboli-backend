@@ -33,6 +33,8 @@ enum FiatCurrency {
 
 enum DepositStatus {
   PENDING
+  PROOF_SUBMITTED
+  RATE_EXPIRED
   APPROVED
   REJECTED
   MINTED
@@ -88,6 +90,7 @@ model User {
   kycDocuments KycDocument[]
   transactions Transaction[]
   deposits     Deposit[]
+  validatedDeposits Deposit[] @relation("DepositValidatedBy")
 
   @@map("users")
 }
@@ -143,20 +146,35 @@ model Deposit {
   id            String        @id @default(uuid())
   user          User          @relation(fields: [userId], references: [id])
   userId        String
-  currency      FiatCurrency
-  amount        Float //monto depositado (sin fee)
-  feeRate       Float //comision fija 0.001 (0.1%)
-  serviceFee    Float //amount * feeRate
-  totalAmount   Float //amount + serviceFee
-  rateUsed      Float // BOB: 1, PEN: PEN->BOB del momento
-  expectedBOBH  Float // BOB: amount, PEN: amount * rateUsed
+  currency      FiatCurrency  //moneda 
+  //Dinero depositado
+  amount        Decimal       @db.Decimal(36, 18)         //monto depositado (sin fee)
+  feeRate       Decimal       @db.Decimal(36, 18)         //comision fija 0.001 (0.1%)
+  serviceFee    Decimal       @db.Decimal(36, 18)         //amount * feeRate
+  totalAmount   Decimal       @db.Decimal(36, 18)         //amount + serviceFee
+  //rate lock (para el PEN)
+  rateUsed      Decimal       @db.Decimal(36, 18)         // BOB: 1, PEN: PEN->BOB del momento
+  rateSource    String?
+  rateQuotedAt  DateTime?
+  rateExpiresAt DateTime?
+  expectedBOBH  Decimal       @db.Decimal(36, 18)         // BOB: amount, PEN: amount * rateUsed
   referenceCode String        @unique
   status        DepositStatus @default(PENDING)
-  validatedById String?
-  validatedAt   DateTime?
-  mintTxHash    String?
+  //auditoría de validación
+  validatedById String?       //quién aprobó/rechazó (admin u operador)
+  validatedBy   User?         @relation("DepositValidatedBy", fields: [validatedById], references: [id])
+  validatedAt   DateTime?   
+  //mint
+  mintTxHash    String?       //hash de la tx de mint
   mintedAt      DateTime?
+  // Comprobante
+  proofUrl       String?
+  proofUploadedAt DateTime?
+  proofFileName   String?
+  proofMimeType   String?
+
   createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
   processedAt   DateTime?     @updatedAt
 
   //Relaciones
