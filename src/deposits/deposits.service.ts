@@ -2,84 +2,75 @@ import {
   BadRequestException,
   Injectable,
   InternalServerErrorException,
-} from '@nestjs/common';
-import { Prisma, FiatCurrency } from '@prisma/client';
-import { PrismaService } from '../prisma.service';
-import { CreateDepositDto, FiatCurrencyDto } from './dto/create-deposit.dto';
-import { randomBytes } from 'crypto';
+} from "@nestjs/common";
+import { Prisma, FiatCurrency } from "@prisma/client";
+import { PrismaService } from "../prisma.service";
+import { CreateDepositDto, FiatCurrencyDto } from "./dto/create-deposit.dto";
+import { randomBytes } from "crypto";
+import { RatesService } from "../rates/rates.service";
 
 @Injectable()
 export class DepositsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly ratesService: RatesService
+  ) {}
 
-  private readonly FEE_RATE = 0.001; // 0.1%
-  private readonly MIN_DEPOSIT_BOB = 10_000;
-
-  private getPenToBobRate(): number {
-    const r = Number(process.env.PEN_TO_BOB_RATE);
-    if (!Number.isFinite(r) || r <= 0) {
-      throw new InternalServerErrorException(
-        'PEN_TO_BOB_RATE inválido o no definido',
-      );
-    }
-    return r;
-  }
-
-  private calcRateUsed(currency: FiatCurrencyDto): number {
-    return currency === FiatCurrencyDto.BOB ? 1 : this.getPenToBobRate();
-  }
-
-  private amountInBobEquivalent(
-    dto: CreateDepositDto,
-    rateUsed: number,
-  ): number {
-    return dto.currency === FiatCurrencyDto.BOB
-      ? dto.amount
-      : dto.amount * rateUsed;
-  }
-
-  private calcExpectedBOBH(dto: CreateDepositDto, rateUsed: number): number {
-    return dto.currency === FiatCurrencyDto.BOB
-      ? dto.amount
-      : dto.amount * rateUsed;
-  }
-
-  private calcFee(amount: number): number {
-    return amount * this.FEE_RATE;
-  }
+  private readonly FEE_RATE = new Prisma.Decimal("0.001"); // 0.1%
+  private readonly MIN_DEPOSIT_BOB = new Prisma.Decimal("10000");
+  private readonly RATE_LOCK_MINUTES = Number(process.env.RATE_LOCK_MINUTES ?? "30");
 
   private generateReferenceCode(): string {
-    return `HUN-${randomBytes(3).toString('hex').toUpperCase()}`;
+    return `HUN-${randomBytes(3).toString("hex").toUpperCase()}`;
   }
 
   async createDeposit(userId: string, dto: CreateDepositDto) {
-    if (!userId) throw new BadRequestException('Usuario no autenticado');
+    if (!userId) throw new BadRequestException("Usuario no autenticado");
     if (!Number.isFinite(dto.amount) || dto.amount <= 0) {
-      throw new BadRequestException('Monto inválido');
+      throw new BadRequestException("Monto inválido");
     }
 
-    const rateUsed = this.calcRateUsed(dto.currency);
-    const bobEquivalent = this.amountInBobEquivalent(dto, rateUsed);
+    const amount = new Prisma.Decimal(dto.amount);
+
+    // fee / total en Decimal
+    const feeRate = this.FEE_RATE;
+    const serviceFee = amount.mul(feeRate);
+    const totalAmount = amount.add(serviceFee);
+
+    // Convierte DTO currency -> Prisma enum
+    const currency: FiatCurrency =
+      dto.currency === FiatCurrencyDto.BOB ? FiatCurrency.BOB : FiatCurrency.PEN;
+
+    // Rate lock
+    let rateUsed = new Prisma.Decimal("1"); // OBLIGATORIO en tu schema (BOB=1)
+    let rateSource: string | null = null;
+    let rateQuotedAt: Date | null = null;
+    let rateExpiresAt: Date | null = null;
+
+    let bobEquivalent = new Prisma.Decimal("0");
+
+    if (currency === FiatCurrency.BOB) {
+      bobEquivalent = amount;
+    } else {
+      const r = await this.ratesService.getPenToBobRate(); // Decimal
+      rateUsed = r.rate;
+      rateSource = r.source;
+      rateQuotedAt = new Date();
+      rateExpiresAt = new Date(rateQuotedAt.getTime() + this.RATE_LOCK_MINUTES * 60_000);
+
+      bobEquivalent = amount.mul(rateUsed);
+    }
 
     // Mínimo: 10k Bs equivalentes
-    if (bobEquivalent < this.MIN_DEPOSIT_BOB) {
+    if (bobEquivalent.lt(this.MIN_DEPOSIT_BOB)) {
       throw new BadRequestException(
-        `Depósito mínimo: ${this.MIN_DEPOSIT_BOB} Bs (equivalente).`,
+        `Depósito mínimo: ${this.MIN_DEPOSIT_BOB.toString()} Bs (equivalente).`
       );
     }
 
-    const feeRate = this.FEE_RATE;
-    const serviceFee = this.calcFee(dto.amount);
-    const totalAmount = dto.amount + serviceFee; // <- tu campo en Prisma es totalAmount
-    const expectedBOBH = this.calcExpectedBOBH(dto, rateUsed);
+    const expectedBOBH = bobEquivalent; // 1:1 con BOB
 
-    // Convierte DTO currency -> Prisma enum (sin any)
-    const currency: FiatCurrency =
-      dto.currency === FiatCurrencyDto.BOB
-        ? FiatCurrency.BOB
-        : FiatCurrency.PEN;
-
-    // Generar referenceCode único con reintentos
+    // referenceCode único con reintentos
     for (let i = 0; i < 5; i++) {
       const referenceCode = this.generateReferenceCode();
 
@@ -88,11 +79,16 @@ export class DepositsService {
           data: {
             userId,
             currency,
-            amount: dto.amount,
+            amount,
             feeRate,
             serviceFee,
             totalAmount,
-            rateUsed,
+
+            rateUsed,       // siempre se guarda (BOB=1, PEN=rate)
+            rateSource,
+            rateQuotedAt,
+            rateExpiresAt,
+
             expectedBOBH,
             referenceCode,
           },
@@ -103,31 +99,38 @@ export class DepositsService {
           status: deposit.status,
           referenceCode: deposit.referenceCode,
           currency: deposit.currency,
-          amount: deposit.amount,
-          feeRate: deposit.feeRate,
-          serviceFee: deposit.serviceFee,
-          totalAmount: deposit.totalAmount,
-          rateUsed: deposit.rateUsed,
-          expectedBOBH: deposit.expectedBOBH,
+
+          amount: deposit.amount.toString(),
+          feeRate: deposit.feeRate.toString(),
+          serviceFee: deposit.serviceFee.toString(),
+          totalAmount: deposit.totalAmount.toString(),
+
+          rateUsed: deposit.rateUsed.toString(),
+          rateSource: deposit.rateSource ?? null,
+          rateQuotedAt: deposit.rateQuotedAt ? deposit.rateQuotedAt.toISOString() : null,
+          rateExpiresAt: deposit.rateExpiresAt ? deposit.rateExpiresAt.toISOString() : null,
+
+          expectedBOBH: deposit.expectedBOBH.toString(),
+
           instructions: {
-            title: 'Transferencia bancaria',
-            bankName: 'Banco X',
-            accountName: 'HUNBOLI SRL',
-            accountNumber: '123456789',
-            note: `Usa esta referencia en el pago: ${deposit.referenceCode}`,
+            title: "Transferencia bancaria",
+            bankName: "Banco X",
+            accountName: "HUNBOLI SRL",
+            accountNumber: "123456789",
+            note:
+              deposit.currency === "PEN" && deposit.rateExpiresAt
+                ? `Usa esta referencia en el pago: ${deposit.referenceCode}. Tipo de cambio fijado hasta: ${deposit.rateExpiresAt.toISOString()}`
+                : `Usa esta referencia en el pago: ${deposit.referenceCode}`,
           },
         };
       } catch (e: unknown) {
-        // P2002 = unique constraint failed (referenceCode)
         if (e instanceof Prisma.PrismaClientKnownRequestError) {
-          if (e.code === 'P2002') continue;
+          if (e.code === "P2002") continue;
         }
         throw e;
       }
     }
 
-    throw new InternalServerErrorException(
-      'No se pudo generar un referenceCode único',
-    );
+    throw new InternalServerErrorException("No se pudo generar un referenceCode único");
   }
 }
