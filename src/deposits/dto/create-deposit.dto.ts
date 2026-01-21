@@ -1,4 +1,5 @@
 import { IsEnum, IsNumber, Min } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export enum FiatCurrencyDto {
   BOB = 'BOB',
@@ -9,7 +10,8 @@ export class CreateDepositDto {
   @IsEnum(FiatCurrencyDto)
   currency: FiatCurrencyDto;
 
-  @IsNumber()
+  @Type(() => Number)
+  @IsNumber({ allowNaN: false, allowInfinity: false })
   @Min(0.01)
   amount: number;
 }
