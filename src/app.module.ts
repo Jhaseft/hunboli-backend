@@ -11,6 +11,7 @@ import { MailModule } from './mail/mail.module';
 import { BanksModule } from './banks/banks.module';
 import { RatesModule } from './rates/rates.module';
 import { DepositsModule } from './deposits/deposits.module';
+import { BankAccountsModule } from './bank-accounts/bank-accounts.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { DepositsModule } from './deposits/deposits.module';
     BanksModule,
     RatesModule,
     DepositsModule,
+    BankAccountsModule,
   ],
   controllers: [],
   providers: [],

@@ -90,8 +90,8 @@ model User {
   kycDocuments KycDocument[]
   transactions Transaction[]
   deposits     Deposit[]
-  validatedDeposits Deposit[] @relation("DepositValidatedBy")
-
+  bankAccounts BankAccount[]
+  depositsValidated Deposit[] @relation("DepositValidatedBy")
   @@map("users")
 }
 
@@ -122,7 +122,6 @@ model Transaction {
   depositId   String?
   createdAt   DateTime          @default(now())
   updatedAt   DateTime?         @updatedAt
-
   @@index([userId, createdAt])
   @@index([txHash])
   @@map("transactions")
@@ -140,6 +139,7 @@ model Banks {
   logo_url    String
   createdAt   DateTime          @default(now())
   updatedAt   DateTime?         @updatedAt
+  bankAccounts BankAccount[]
 }
 
 model Deposit {
@@ -179,6 +179,23 @@ model Deposit {
 
   //Relaciones
   transactions Transaction[]
-
+  
   @@map("deposits")
+}
+
+
+model BankAccount {
+  id            BigInt       @id @default(autoincrement())
+  user          User         @relation(fields: [userId], references: [id])
+  userId        String
+  bank          Banks        @relation(fields: [bankId], references: [id])
+  bankId        Int
+  accountNumber String       @db.VarChar(50)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime?    @updatedAt
+
+  @@index([userId])
+  @@index([bankId])
+  @@index([accountNumber])
+  @@map("bank_accounts")
 }
