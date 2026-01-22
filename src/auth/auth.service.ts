@@ -58,14 +58,7 @@ export class AuthService {
     };
     return {
       access_token: this.jwtService.sign(payload),
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        kycStatus: user.kycStatus,
-        walletAddress: user.walletAddress,
-        isOnboardingCompleted: user.isOnboardingCompleted,
-      },
+      user: new UserEntity(user),
     };
   }
 
