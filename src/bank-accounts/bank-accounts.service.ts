@@ -1,26 +1,73 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { CreateBankAccountDto } from './dto/create-bank-account.dto';
-import { UpdateBankAccountDto } from './dto/update-bank-account.dto';
+import { PrismaService } from '../prisma.service';
 
 @Injectable()
 export class BankAccountsService {
-  create(createBankAccountDto: CreateBankAccountDto) {
-    return 'This action adds a new bankAccount';
+  constructor(private prisma: PrismaService) { }
+
+  async create(dto: CreateBankAccountDto) {
+    const exists = await this.prisma.bankAccount.findFirst({
+      where: {
+        userId: dto.userId,
+        bankId: dto.bankId,
+        accountNumber: dto.accountNumber,
+      },
+    });
+
+    if (exists) {
+      throw new BadRequestException('La cuenta bancaria ya existe');
+    }
+
+    const account = await this.prisma.bankAccount.create({
+      data: {
+        userId: dto.userId,
+        bankId: dto.bankId,
+        accountNumber: dto.accountNumber,
+      },
+    });
+
+    return {
+      ...account,
+      id: account.id.toString(),
+      bankId: Number(account.bankId),
+    };
   }
 
-  findAll() {
-    return `This action returns all bankAccounts`;
+  async findByUserId(userId: string) {
+    const accounts = await this.prisma.bankAccount.findMany({
+      where: { userId },
+      include: { bank: true },
+    });
+
+    if (accounts.length === 0) {
+      throw new NotFoundException('El usuario no tiene cuentas bancarias');
+    }
+
+    return accounts.map(account => ({
+      ...account,
+      id: account.id.toString(),
+      bankId: Number(account.bankId),
+    }));
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} bankAccount`;
+  async remove(id: bigint) {
+    try {
+      const account = await this.prisma.bankAccount.delete({
+        where: { id },
+      });
+
+      return {
+        ...account,
+        id: account.id.toString(),
+        bankId: Number(account.bankId),
+      };
+    } catch (error: any) {
+      if (error?.code === 'P2025') {
+        throw new NotFoundException('La cuenta bancaria no existe');
+      }
+      throw error;
+    }
   }
 
-  update(id: number, updateBankAccountDto: UpdateBankAccountDto) {
-    return `This action updates a #${id} bankAccount`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} bankAccount`;
-  }
 }
