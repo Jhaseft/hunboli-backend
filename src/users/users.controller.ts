@@ -19,6 +19,8 @@ import { KycStatus, UserRole } from '@prisma/client';
 import { LinkWalletDto } from './dto/link-wallet.dto';
 import { AuthService } from '../auth/auth.service';
 import { CompleteProfileDto } from './dto/complete-profile.dto';
+import { EditPhoneNumberDto } from './dto/edit-phone-number.dto';
+import { EditPasswordDto } from './dto/edit-password.dto';
 import * as bcrypt from 'bcrypt';
 
 interface JwtUser {
@@ -99,6 +101,38 @@ export class UsersController {
       success: true,
       message: 'Perfil completado correctamente',
       user: new UserEntity(updatedUser)
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('edit-phone-number')
+  async editPhoneNumber(@CurrentUser() user: JwtUser, @Body() body: EditPhoneNumberDto) {
+    const updatedUser = await this.usersService.update(user.userId, {
+      phoneNumber: body.phoneNumber,
+    });
+    return {
+      success: true,
+      message: 'Número de teléfono actualizado correctamente',
+      phoneNumber: updatedUser.phoneNumber
+    };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('edit-password')
+  async editPassword(@CurrentUser() user: JwtUser, @Body() body: EditPasswordDto) {
+    const validUser = await this.authService.validateUser(
+      user.email,
+      body.oldPassword,
+    );
+    if (!validUser) {
+      throw new BadRequestException('Contraseña actual incorrecta');
+    }
+    await this.usersService.update(user.userId, {
+      password: await bcrypt.hash(body.newPassword, 10),
+    });
+    return {
+      success: true,
+      message: 'Contraseña actualizada correctamente',
     };
   }
 }
