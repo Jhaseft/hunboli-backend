@@ -1,17 +1,34 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const logger = new Logger('Bootstrap');
 
   // Obtener el ConfigService
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT') ?? 4000;
   const frontendUrl =
     configService.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
+
+  // Middleware de logging
+  app.use((req, res, next) => {
+    const { method, originalUrl } = req;
+    const startTime = Date.now();
+
+    res.on('finish', () => {
+      const { statusCode } = res;
+      const responseTime = Date.now() - startTime;
+      logger.log(
+        `${method} ${originalUrl} ${statusCode} - ${responseTime}ms`,
+      );
+    });
+
+    next();
+  });
 
   //  Configurar CORS desde variables de entorno
   app.enableCors({
@@ -38,7 +55,8 @@ async function bootstrap() {
   SwaggerModule.setup('docs', app, document);
 
   await app.listen(port);
-  console.log(` Servidor corriendo papitos yijuu http://localhost:${port}`);
-  console.log(` Cors habilitado para este desgraciao: ${frontendUrl}`);
+  logger.log(`🚀 Servidor corriendo papitos yijuu http://localhost:${port}`);
+  logger.log(`🌐 Cors habilitado para este desgraciao: ${frontendUrl}`);
+  logger.log(`📚 Documentación disponible en http://localhost:${port}/docs`);
 }
 void bootstrap();

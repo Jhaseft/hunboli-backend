@@ -1,34 +1,27 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, UseGuards } from '@nestjs/common';
 import { BankAccountsService } from './bank-accounts.service';
 import { CreateBankAccountDto } from './dto/create-bank-account.dto';
-import { UpdateBankAccountDto } from './dto/update-bank-account.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('bank-accounts')
 export class BankAccountsController {
-  constructor(private readonly bankAccountsService: BankAccountsService) {}
+  constructor(private bankAccountsService: BankAccountsService) {}
 
+  @UseGuards(JwtAuthGuard)
   @Post()
   create(@Body() createBankAccountDto: CreateBankAccountDto) {
     return this.bankAccountsService.create(createBankAccountDto);
   }
 
-  @Get()
-  findAll() {
-    return this.bankAccountsService.findAll();
+  @UseGuards(JwtAuthGuard)
+  @Get('user/:userId')
+  findByUserId(@Param('userId') userId: string) {
+    return this.bankAccountsService.findByUserId(userId);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.bankAccountsService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateBankAccountDto: UpdateBankAccountDto) {
-    return this.bankAccountsService.update(+id, updateBankAccountDto);
-  }
-
+  @UseGuards(JwtAuthGuard)
   @Delete(':id')
   remove(@Param('id') id: string) {
-    return this.bankAccountsService.remove(+id);
+    return this.bankAccountsService.remove(BigInt(id));
   }
 }
