@@ -59,4 +59,8 @@ export class CreateUserDto {
   @IsOptional()
   @IsBoolean()
   isOnboardingCompleted?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isVerified?: boolean;
 }
