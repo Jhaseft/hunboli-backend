@@ -50,7 +50,7 @@ export class UserEntity implements User {
   resetPasswordExpiry: Date | null;
 
   @ApiProperty({ nullable: true })
-  isGoogleAccount: boolean;
+  isGoogleAccount: boolean | null;
 
   @ApiProperty()
   isOnboardingCompleted: boolean;
