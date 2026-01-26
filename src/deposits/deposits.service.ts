@@ -5,7 +5,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { DepositStatus, FiatCurrency, Prisma } from '@prisma/client';
+import { FiatCurrency, FiatOperationStatus, FiatOperationType, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { CreateDepositDto, FiatCurrencyDto } from './dto/create-deposit.dto';
 import { ListMyDepositsQueryDto } from './dto/list-my-deposits.dto';
@@ -20,6 +20,24 @@ export class DepositsService {
     private readonly ratesService: RatesService,
     private readonly cloudinaryService: CloudinaryService,
   ) {}
+
+  private isMinted(
+    status: FiatOperationStatus,
+    deposit: { mintedAt: Date | null; mintTxHash: string | null } | null,
+  ) {
+    return (
+      status === FiatOperationStatus.PROCESSED ||
+      !!deposit?.mintedAt ||
+      !!deposit?.mintTxHash
+    );
+  }
+
+  private displayStatus(
+    status: FiatOperationStatus,
+    deposit: { mintedAt: Date | null; mintTxHash: string | null } | null,
+  ) {
+    return this.isMinted(status, deposit) ? 'MINTED' : status;
+  }
 
   private readonly FEE_RATE = new Prisma.Decimal('0.001'); // 0.1%
   private readonly MIN_DEPOSIT_BOB = new Prisma.Decimal('10000'); // 10k Bs (equivalente)
@@ -88,8 +106,9 @@ export class DepositsService {
       const referenceCode = this.generateReferenceCode();
 
       try {
-        const deposit = await this.prisma.deposit.create({
+        const deposit = await this.prisma.fiatOperation.create({
           data: {
+            type: FiatOperationType.DEPOSIT,
             userId,
             currency,
             amount,
@@ -103,15 +122,21 @@ export class DepositsService {
             rateQuotedAt,
             rateExpiresAt,
 
-            expectedBOBH,
             referenceCode,
+            deposit: {
+              create: {
+                expectedBOBH,
+              },
+            },
             // status default: PENDING
           },
+          include: { deposit: true },
         });
 
+        const displayStatus = this.displayStatus(deposit.status, deposit.deposit);
         return {
           depositId: deposit.id,
-          status: deposit.status,
+          status: displayStatus,
           referenceCode: deposit.referenceCode,
           currency: deposit.currency,
 
@@ -129,7 +154,7 @@ export class DepositsService {
             ? deposit.rateExpiresAt.toISOString()
             : null,
 
-          expectedBOBH: deposit.expectedBOBH.toString(),
+          expectedBOBH: deposit.deposit?.expectedBOBH ? deposit.deposit.expectedBOBH.toString() : '0',
 
           instructions: {
             title: 'Transferencia bancaria',
@@ -162,7 +187,11 @@ export class DepositsService {
     if (!depositId) throw new BadRequestException('depositId inválido');
     if (!file) throw new BadRequestException('Archivo requerido');
 
-    const deposit = await this.prisma.deposit.findUnique({ where: { id: depositId } });
+    const deposit = await this.prisma.fiatOperation.findFirst({
+      where: { id: depositId, type: FiatOperationType.DEPOSIT },
+      include: { deposit: true },
+    });
+    if (!deposit || !deposit.deposit) throw new NotFoundException('Deposito no encontrado');
     if (!deposit) throw new NotFoundException('Depósito no encontrado');
     if (deposit.userId !== userId)
       throw new ForbiddenException('No tienes acceso a este depósito');
@@ -171,9 +200,9 @@ export class DepositsService {
     if (deposit.currency === 'PEN' && deposit.rateExpiresAt) {
       const now = new Date();
       if (now > deposit.rateExpiresAt) {
-        await this.prisma.deposit.update({
+        await this.prisma.fiatOperation.update({
           where: { id: depositId },
-          data: { status: DepositStatus.RATE_EXPIRED },
+          data: { status: FiatOperationStatus.RATE_EXPIRED },
         });
         throw new BadRequestException(
           'El tipo de cambio expiró. Crea un nuevo depósito.',
@@ -183,8 +212,8 @@ export class DepositsService {
 
     // Estados donde NO aceptamos comprobante
     if (
-      deposit.status === DepositStatus.REJECTED ||
-      deposit.status === DepositStatus.MINTED
+      deposit.status === FiatOperationStatus.REJECTED ||
+      this.isMinted(deposit.status, deposit.deposit)
     ) {
       throw new BadRequestException(
         'No puedes subir comprobante en este estado.',
@@ -210,24 +239,29 @@ export class DepositsService {
       referenceCode: deposit.referenceCode,
     });
 
-    const updated = await this.prisma.deposit.update({
+    const updated = await this.prisma.fiatOperation.update({
       where: { id: depositId },
       data: {
-        proofUrl: uploaded.secureUrl,
-        proofUploadedAt: new Date(),
-        proofFileName: file.originalname,
-        proofMimeType: file.mimetype,
-        status: DepositStatus.PROOF_SUBMITTED,
+        status: FiatOperationStatus.PROOF_SUBMITTED,
+        deposit: {
+          update: {
+            proofUrl: uploaded.secureUrl,
+            proofUploadedAt: new Date(),
+            proofFileName: file.originalname,
+            proofMimeType: file.mimetype,
+          },
+        },
       },
+      include: { deposit: true },
     });
 
     return {
       depositId: updated.id,
-      status: updated.status,
-      proofUrl: updated.proofUrl,
-      proofUploadedAt: updated.proofUploadedAt?.toISOString() ?? null,
-      proofFileName: updated.proofFileName ?? null,
-      proofMimeType: updated.proofMimeType ?? null,
+      status: this.displayStatus(updated.status, updated.deposit),
+      proofUrl: updated.deposit?.proofUrl ?? null,
+      proofUploadedAt: updated.deposit?.proofUploadedAt?.toISOString() ?? null,
+      proofFileName: updated.deposit?.proofFileName ?? null,
+      proofMimeType: updated.deposit?.proofMimeType ?? null,
     };
   }
 
@@ -237,8 +271,8 @@ export class DepositsService {
     const limit = Math.min(Math.max(q.limit ?? 10, 1), 50);
     const cursor = q.cursor?.trim() || undefined;
 
-    const rows = await this.prisma.deposit.findMany({
-      where: { userId },
+    const rows = await this.prisma.fiatOperation.findMany({
+      where: { userId, type: FiatOperationType.DEPOSIT },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit + 1,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
@@ -252,27 +286,30 @@ export class DepositsService {
         feeRate: true,
         serviceFee: true,
         totalAmount: true,
-        expectedBOBH: true,
 
         rateUsed: true,
         rateSource: true,
         rateQuotedAt: true,
         rateExpiresAt: true,
 
-        proofUrl: true,
-        proofUploadedAt: true,
-        proofFileName: true,
-        proofMimeType: true,
-
         validatedById: true,
         validatedAt: true,
-
-        mintTxHash: true,
-        mintedAt: true,
 
         createdAt: true,
         updatedAt: true,
         processedAt: true,
+
+        deposit: {
+          select: {
+            expectedBOBH: true,
+            proofUrl: true,
+            proofUploadedAt: true,
+            proofFileName: true,
+            proofMimeType: true,
+            mintTxHash: true,
+            mintedAt: true,
+          },
+        },
       },
     });
 
@@ -282,40 +319,44 @@ export class DepositsService {
     const nextCursor = hasMore ? items[items.length - 1]?.id ?? null : null;
 
     return {
-      items: items.map((d) => ({
-        id: d.id,
-        referenceCode: d.referenceCode,
-        currency: d.currency,
-        status: d.status,
+      items: items.map((d) => {
+        const displayStatus = this.displayStatus(d.status, d.deposit);
 
-        amount: d.amount.toString(),
-        feeRate: d.feeRate.toString(),
-        serviceFee: d.serviceFee.toString(),
-        totalAmount: d.totalAmount.toString(),
-        expectedBOBH: d.expectedBOBH.toString(),
+        return {
+          id: d.id,
+          referenceCode: d.referenceCode,
+          currency: d.currency,
+          status: displayStatus,
 
-        rateUsed: d.rateUsed ? d.rateUsed.toString() : null,
-        rateSource: d.rateSource ?? null,
-        rateQuotedAt: d.rateQuotedAt ? d.rateQuotedAt.toISOString() : null,
-        rateExpiresAt: d.rateExpiresAt ? d.rateExpiresAt.toISOString() : null,
+          amount: d.amount.toString(),
+          feeRate: d.feeRate.toString(),
+          serviceFee: d.serviceFee.toString(),
+          totalAmount: d.totalAmount.toString(),
+          expectedBOBH: d.deposit?.expectedBOBH ? d.deposit.expectedBOBH.toString() : '0',
 
-        proofUrl: d.proofUrl ?? null,
-        proofUploadedAt: d.proofUploadedAt
-          ? d.proofUploadedAt.toISOString()
-          : null,
-        proofFileName: d.proofFileName ?? null,
-        proofMimeType: d.proofMimeType ?? null,
+          rateUsed: d.rateUsed ? d.rateUsed.toString() : null,
+          rateSource: d.rateSource ?? null,
+          rateQuotedAt: d.rateQuotedAt ? d.rateQuotedAt.toISOString() : null,
+          rateExpiresAt: d.rateExpiresAt ? d.rateExpiresAt.toISOString() : null,
 
-        validatedById: d.validatedById ?? null,
-        validatedAt: d.validatedAt ? d.validatedAt.toISOString() : null,
+          proofUrl: d.deposit?.proofUrl ?? null,
+          proofUploadedAt: d.deposit?.proofUploadedAt
+            ? d.deposit.proofUploadedAt.toISOString()
+            : null,
+          proofFileName: d.deposit?.proofFileName ?? null,
+          proofMimeType: d.deposit?.proofMimeType ?? null,
 
-        mintTxHash: d.mintTxHash ?? null,
-        mintedAt: d.mintedAt ? d.mintedAt.toISOString() : null,
+          validatedById: d.validatedById ?? null,
+          validatedAt: d.validatedAt ? d.validatedAt.toISOString() : null,
 
-        createdAt: d.createdAt.toISOString(),
-        updatedAt: d.updatedAt.toISOString(),
-        processedAt: d.processedAt ? d.processedAt.toISOString() : null,
-      })),
+          mintTxHash: d.deposit?.mintTxHash ?? null,
+          mintedAt: d.deposit?.mintedAt ? d.deposit.mintedAt.toISOString() : null,
+
+          createdAt: d.createdAt.toISOString(),
+          updatedAt: d.updatedAt.toISOString(),
+          processedAt: d.processedAt ? d.processedAt.toISOString() : null,
+        };
+      }),
       nextCursor,
       hasMore,
       limit,

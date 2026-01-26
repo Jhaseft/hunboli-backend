@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { DepositStatus, Prisma, UserRole } from '@prisma/client';
+import { FiatOperationStatus, FiatOperationType, Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { AdminDecisionDto, AdminDecisionAction } from './dto/decision.dto';
 import { ListAdminDepositsQueryDto, AdminDepositStatusFilter } from './dto/list-admin-deposits.dto';
@@ -17,20 +17,48 @@ export class AdminDepositsService {
     }
   }
 
+  private isMinted(
+    status: FiatOperationStatus,
+    deposit: { mintedAt: Date | null; mintTxHash: string | null } | null,
+  ) {
+    return (
+      status === FiatOperationStatus.PROCESSED ||
+      !!deposit?.mintedAt ||
+      !!deposit?.mintTxHash
+    );
+  }
+
+  private displayStatus(
+    status: FiatOperationStatus,
+    deposit: { mintedAt: Date | null; mintTxHash: string | null } | null,
+  ) {
+    return this.isMinted(status, deposit) ? 'MINTED' : status;
+  }
+
   async list(u: JwtUser, q: ListAdminDepositsQueryDto) {
     this.assertAdminOrOperator(u);
 
     const limit = Math.min(Math.max(q.limit ?? 10, 1), 50);
     const cursor = q.cursor?.trim() || undefined;
 
-    const where: Prisma.DepositWhereInput = {};
+    const where: Prisma.FiatOperationWhereInput = {
+      type: FiatOperationType.DEPOSIT,
+    };
 
     const status = q.status ?? AdminDepositStatusFilter.PROOF_SUBMITTED;
     if (status !== AdminDepositStatusFilter.ALL) {
-      where.status = status as unknown as DepositStatus;
+      if (status === AdminDepositStatusFilter.MINTED) {
+        where.OR = [
+          { status: FiatOperationStatus.PROCESSED },
+          { deposit: { mintedAt: { not: null } } },
+          { deposit: { mintTxHash: { not: null } } },
+        ];
+      } else {
+        where.status = status as unknown as FiatOperationStatus;
+      }
     }
 
-    const rows = await this.prisma.deposit.findMany({
+    const rows = await this.prisma.fiatOperation.findMany({
       where,
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit + 1,
@@ -43,25 +71,28 @@ export class AdminDepositsService {
 
         amount: true,
         totalAmount: true,
-        expectedBOBH: true,
 
         rateUsed: true,
         rateSource: true,
         rateQuotedAt: true,
         rateExpiresAt: true,
 
-        proofUrl: true,
-        proofUploadedAt: true,
-        proofFileName: true,
-        proofMimeType: true,
-
         validatedById: true,
         validatedAt: true,
 
-        mintTxHash: true,
-        mintedAt: true,
-
         createdAt: true,
+
+        deposit: {
+          select: {
+            expectedBOBH: true,
+            proofUrl: true,
+            proofUploadedAt: true,
+            proofFileName: true,
+            proofMimeType: true,
+            mintTxHash: true,
+            mintedAt: true,
+          },
+        },
 
         user: {
           select: {
@@ -85,35 +116,39 @@ export class AdminDepositsService {
 
     return {
       items: items.map((d) => {
+        const displayStatus = this.displayStatus(d.status, d.deposit);
         const isRateExpired =
-          d.currency === 'PEN' && !!d.rateExpiresAt && now > d.rateExpiresAt.getTime() && d.status !== 'MINTED';
+          d.currency === 'PEN' &&
+          !!d.rateExpiresAt &&
+          now > d.rateExpiresAt.getTime() &&
+          displayStatus !== 'MINTED';
 
         return {
           id: d.id,
           referenceCode: d.referenceCode,
           currency: d.currency,
-          status: d.status,
+          status: displayStatus,
           isRateExpired,
 
           amount: d.amount.toString(),
           totalAmount: d.totalAmount.toString(),
-          expectedBOBH: d.expectedBOBH.toString(),
+          expectedBOBH: d.deposit?.expectedBOBH ? d.deposit.expectedBOBH.toString() : '0',
 
           rateUsed: d.rateUsed ? d.rateUsed.toString() : null,
           rateSource: d.rateSource ?? null,
           rateQuotedAt: d.rateQuotedAt ? d.rateQuotedAt.toISOString() : null,
           rateExpiresAt: d.rateExpiresAt ? d.rateExpiresAt.toISOString() : null,
 
-          proofUrl: d.proofUrl ?? null,
-          proofUploadedAt: d.proofUploadedAt ? d.proofUploadedAt.toISOString() : null,
-          proofFileName: d.proofFileName ?? null,
-          proofMimeType: d.proofMimeType ?? null,
+          proofUrl: d.deposit?.proofUrl ?? null,
+          proofUploadedAt: d.deposit?.proofUploadedAt ? d.deposit.proofUploadedAt.toISOString() : null,
+          proofFileName: d.deposit?.proofFileName ?? null,
+          proofMimeType: d.deposit?.proofMimeType ?? null,
 
           validatedById: d.validatedById ?? null,
           validatedAt: d.validatedAt ? d.validatedAt.toISOString() : null,
 
-          mintTxHash: d.mintTxHash ?? null,
-          mintedAt: d.mintedAt ? d.mintedAt.toISOString() : null,
+          mintTxHash: d.deposit?.mintTxHash ?? null,
+          mintedAt: d.deposit?.mintedAt ? d.deposit.mintedAt.toISOString() : null,
 
           createdAt: d.createdAt.toISOString(),
 
@@ -130,8 +165,8 @@ export class AdminDepositsService {
   async getOne(u: JwtUser, id: string) {
     this.assertAdminOrOperator(u);
 
-    const d = await this.prisma.deposit.findUnique({
-      where: { id },
+    const d = await this.prisma.fiatOperation.findFirst({
+      where: { id, type: FiatOperationType.DEPOSIT },
       include: {
         user: {
           select: {
@@ -145,54 +180,64 @@ export class AdminDepositsService {
             walletAddress: true,
           },
         },
-        transactions: {
-          orderBy: { createdAt: 'desc' },
-          take: 5,
-        },
+        deposit: true,
       },
     });
+    if (!d) throw new NotFoundException('Deposito no encontrado');
+    if (!d.deposit) throw new NotFoundException('Deposito no encontrado');
+    const displayStatus = this.displayStatus(d.status, d.deposit);
 
     if (!d) throw new NotFoundException('Depósito no encontrado');
 
     return {
-      ...d,
+      id: d.id,
+      referenceCode: d.referenceCode,
+      currency: d.currency,
+      status: displayStatus,
+      userId: d.userId,
+
       amount: d.amount.toString(),
       feeRate: d.feeRate.toString(),
       serviceFee: d.serviceFee.toString(),
       totalAmount: d.totalAmount.toString(),
-      expectedBOBH: d.expectedBOBH.toString(),
+      expectedBOBH: d.deposit.expectedBOBH.toString(),
       rateUsed: d.rateUsed ? d.rateUsed.toString() : null,
+      rateSource: d.rateSource ?? null,
+      rateQuotedAt: d.rateQuotedAt ? d.rateQuotedAt.toISOString() : null,
       createdAt: d.createdAt.toISOString(),
       updatedAt: d.updatedAt.toISOString(),
       processedAt: d.processedAt ? d.processedAt.toISOString() : null,
+      validatedById: d.validatedById ?? null,
       validatedAt: d.validatedAt ? d.validatedAt.toISOString() : null,
-      mintedAt: d.mintedAt ? d.mintedAt.toISOString() : null,
-      proofUploadedAt: d.proofUploadedAt ? d.proofUploadedAt.toISOString() : null,
-      rateQuotedAt: d.rateQuotedAt ? d.rateQuotedAt.toISOString() : null,
+      mintedAt: d.deposit.mintedAt ? d.deposit.mintedAt.toISOString() : null,
+      mintTxHash: d.deposit.mintTxHash ?? null,
+      proofUrl: d.deposit.proofUrl ?? null,
+      proofUploadedAt: d.deposit.proofUploadedAt ? d.deposit.proofUploadedAt.toISOString() : null,
+      proofFileName: d.deposit.proofFileName ?? null,
+      proofMimeType: d.deposit.proofMimeType ?? null,
       rateExpiresAt: d.rateExpiresAt ? d.rateExpiresAt.toISOString() : null,
-      transactions: d.transactions.map((t) => ({
-        ...t,
-        amount: t.amount.toString(),
-        createdAt: t.createdAt.toISOString(),
-        updatedAt: t.updatedAt ? t.updatedAt.toISOString() : null,
-        confirmedAt: t.confirmedAt ? t.confirmedAt.toISOString() : null,
-      })),
+      user: d.user,
+      transactions: [],
     };
   }
 
   async decide(u: JwtUser, id: string, dto: AdminDecisionDto) {
     this.assertAdminOrOperator(u);
 
-    const deposit = await this.prisma.deposit.findUnique({ where: { id } });
+    const deposit = await this.prisma.fiatOperation.findFirst({
+      where: { id, type: FiatOperationType.DEPOSIT },
+      include: { deposit: true },
+    });
+    if (!deposit || !deposit.deposit) throw new NotFoundException('Deposito no encontrado');
     if (!deposit) throw new NotFoundException('Depósito no encontrado');
 
     // No tocar si ya final
-    if (deposit.status === DepositStatus.MINTED) {
+    if (this.isMinted(deposit.status, deposit.deposit)) {
       throw new BadRequestException('Este depósito ya fue minteado.');
     }
 
     // Exigir comprobante para aprobar (si quieres permitir BOB sin proof, me dices)
-    if (dto.action === AdminDecisionAction.APPROVE && !deposit.proofUrl) {
+    if (dto.action === AdminDecisionAction.APPROVE && !deposit.deposit.proofUrl) {
       throw new BadRequestException('No se puede aprobar sin comprobante.');
     }
 
@@ -203,16 +248,19 @@ export class AdminDepositsService {
       deposit.rateExpiresAt &&
       new Date() > deposit.rateExpiresAt
     ) {
-      await this.prisma.deposit.update({
+      await this.prisma.fiatOperation.update({
         where: { id },
-        data: { status: DepositStatus.RATE_EXPIRED },
+        data: { status: FiatOperationStatus.RATE_EXPIRED },
       });
       throw new BadRequestException('El tipo de cambio expiró. No se puede aprobar.');
     }
 
-    const newStatus = dto.action === AdminDecisionAction.APPROVE ? DepositStatus.APPROVED : DepositStatus.REJECTED;
+    const newStatus =
+      dto.action === AdminDecisionAction.APPROVE
+        ? FiatOperationStatus.APPROVED
+        : FiatOperationStatus.REJECTED;
 
-    const updated = await this.prisma.deposit.update({
+    const updated = await this.prisma.fiatOperation.update({
       where: { id },
       data: {
         status: newStatus,
