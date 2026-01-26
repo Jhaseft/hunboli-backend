@@ -95,6 +95,7 @@ model User {
   resetPasswordToken    String?
   resetPasswordExpiry   DateTime?
   isOnboardingCompleted Boolean   @default(false)
+  isVerified            Boolean   @default(false)
 
   kycDocuments  KycDocument[]
   fiatOperations FiatOperation[]

@@ -55,6 +55,9 @@ export class UserEntity implements User {
   @ApiProperty()
   isOnboardingCompleted: boolean;
 
+  @ApiProperty()
+  isVerified: boolean;
+
   constructor(partial: Partial<UserEntity>) {
     Object.assign(this, partial);
   }
