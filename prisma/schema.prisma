@@ -49,22 +49,22 @@ model FiatOperation {
   id            String              @id @default(uuid())
   type          FiatOperationType
   userId        String
-  currency      FiatCurrency
-  amount        Decimal             @db.Decimal(36, 18)
-  feeRate       Decimal             @db.Decimal(10, 6)
-  serviceFee    Decimal             @db.Decimal(36, 18)
-  totalAmount   Decimal             @db.Decimal(36, 18)
-  rateUsed      Decimal?            @db.Decimal(36, 18)
-  rateSource    String?
-  rateQuotedAt  DateTime?
-  rateExpiresAt DateTime?
-  referenceCode String              @unique
-  status        FiatOperationStatus @default(PENDING)
-  validatedById String?
-  validatedAt   DateTime?
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
-  processedAt   DateTime?
+  currency      FiatCurrency                              // BOB o PEN
+  amount        Decimal             @db.Decimal(36, 18)   // monto 
+  feeRate       Decimal             @db.Decimal(10, 6)    // porcentaje de fee
+  serviceFee    Decimal             @db.Decimal(36, 18)   // la comision 
+  totalAmount   Decimal             @db.Decimal(36, 18)   // amount + serviceFee 
+  rateUsed      Decimal?            @db.Decimal(36, 18)   // tipo de cambio usado
+  rateSource    String?                                   // fuente del tipo de cambio .env o API(como Binance)
+  rateQuotedAt  DateTime?                                 // fecha y hora de cuando se cotizo el tipo de cambio
+  rateExpiresAt DateTime?                                 // fecha y hora de expiracion del tipo de cambio           
+  referenceCode String              @unique               // codigo unico para referencia
+  status        FiatOperationStatus @default(PENDING)     // pendiente, aprobado, rechazado
+  validatedById String?                                   // usuario que valido la operacion  
+  validatedAt   DateTime?                                 // fecha y hora de validacion     
+  createdAt     DateTime            @default(now())       // fecha y hora de creacion
+  updatedAt     DateTime            @updatedAt            // fecha y hora de ultima actualizacion
+  processedAt   DateTime?                                 
   deposit       DepositDetail?
   user          User                @relation(fields: [userId], references: [id])
   validatedBy   User?               @relation("FiatOperationValidatedBy", fields: [validatedById], references: [id])

@@ -1,0 +1,285 @@
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { FiatOperationStatus, FiatOperationType, Prisma, UserRole } from '@prisma/client';
+import { PrismaService } from '../prisma.service';
+import { AdminDecisionDto, AdminDecisionAction } from './dto/decision.dto';
+import { ListAdminDepositsQueryDto, AdminDepositStatusFilter } from './dto/list-admin-deposits.dto';
+
+type JwtUser = { userId: string; role: UserRole; email?: string };
+
+@Injectable()
+export class AdminDepositsService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  private assertAdminOrOperator(u: JwtUser) {
+    const allowed: UserRole[] = [UserRole.ADMIN, UserRole.OPERATOR_BO, UserRole.OPERATOR_PE];
+    if (!u?.userId || !allowed.includes(u.role)) {
+      throw new ForbiddenException('No autorizado.');
+    }
+  }
+
+  private isMinted(
+    status: FiatOperationStatus,
+    deposit: { mintedAt: Date | null; mintTxHash: string | null } | null,
+  ) {
+    return (
+      status === FiatOperationStatus.PROCESSED ||
+      !!deposit?.mintedAt ||
+      !!deposit?.mintTxHash
+    );
+  }
+
+  private displayStatus(
+    status: FiatOperationStatus,
+    deposit: { mintedAt: Date | null; mintTxHash: string | null } | null,
+  ) {
+    return this.isMinted(status, deposit) ? 'MINTED' : status;
+  }
+
+  async list(u: JwtUser, q: ListAdminDepositsQueryDto) {
+    this.assertAdminOrOperator(u);
+
+    const limit = Math.min(Math.max(q.limit ?? 10, 1), 50);
+    const cursor = q.cursor?.trim() || undefined;
+
+    const where: Prisma.FiatOperationWhereInput = {
+      type: FiatOperationType.DEPOSIT,
+    };
+
+    const status = q.status ?? AdminDepositStatusFilter.PROOF_SUBMITTED;
+    if (status !== AdminDepositStatusFilter.ALL) {
+      if (status === AdminDepositStatusFilter.MINTED) {
+        where.OR = [
+          { status: FiatOperationStatus.PROCESSED },
+          { deposit: { mintedAt: { not: null } } },
+          { deposit: { mintTxHash: { not: null } } },
+        ];
+      } else {
+        where.status = status as unknown as FiatOperationStatus;
+      }
+    }
+
+    const rows = await this.prisma.fiatOperation.findMany({
+      where,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      select: {
+        id: true,
+        referenceCode: true,
+        currency: true,
+        status: true,
+
+        amount: true,
+        totalAmount: true,
+
+        rateUsed: true,
+        rateSource: true,
+        rateQuotedAt: true,
+        rateExpiresAt: true,
+
+        validatedById: true,
+        validatedAt: true,
+
+        createdAt: true,
+
+        deposit: {
+          select: {
+            expectedBOBH: true,
+            proofUrl: true,
+            proofUploadedAt: true,
+            proofFileName: true,
+            proofMimeType: true,
+            mintTxHash: true,
+            mintedAt: true,
+          },
+        },
+
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            country: true,
+            kycStatus: true,
+            walletAddress: true,
+          },
+        },
+      },
+    });
+
+    const hasMore = rows.length > limit;
+    const items = hasMore ? rows.slice(0, limit) : rows;
+    const nextCursor = hasMore ? (items[items.length - 1]?.id ?? null) : null;
+
+    const now = Date.now();
+
+    return {
+      items: items.map((d) => {
+        const displayStatus = this.displayStatus(d.status, d.deposit);
+        const isRateExpired =
+          d.currency === 'PEN' &&
+          !!d.rateExpiresAt &&
+          now > d.rateExpiresAt.getTime() &&
+          displayStatus !== 'MINTED';
+
+        return {
+          id: d.id,
+          referenceCode: d.referenceCode,
+          currency: d.currency,
+          status: displayStatus,
+          isRateExpired,
+
+          amount: d.amount.toString(),
+          totalAmount: d.totalAmount.toString(),
+          expectedBOBH: d.deposit?.expectedBOBH ? d.deposit.expectedBOBH.toString() : '0',
+
+          rateUsed: d.rateUsed ? d.rateUsed.toString() : null,
+          rateSource: d.rateSource ?? null,
+          rateQuotedAt: d.rateQuotedAt ? d.rateQuotedAt.toISOString() : null,
+          rateExpiresAt: d.rateExpiresAt ? d.rateExpiresAt.toISOString() : null,
+
+          proofUrl: d.deposit?.proofUrl ?? null,
+          proofUploadedAt: d.deposit?.proofUploadedAt ? d.deposit.proofUploadedAt.toISOString() : null,
+          proofFileName: d.deposit?.proofFileName ?? null,
+          proofMimeType: d.deposit?.proofMimeType ?? null,
+
+          validatedById: d.validatedById ?? null,
+          validatedAt: d.validatedAt ? d.validatedAt.toISOString() : null,
+
+          mintTxHash: d.deposit?.mintTxHash ?? null,
+          mintedAt: d.deposit?.mintedAt ? d.deposit.mintedAt.toISOString() : null,
+
+          createdAt: d.createdAt.toISOString(),
+
+          user: d.user,
+        };
+      }),
+      nextCursor,
+      hasMore,
+      limit,
+      filter: status,
+    };
+  }
+
+  async getOne(u: JwtUser, id: string) {
+    this.assertAdminOrOperator(u);
+
+    const d = await this.prisma.fiatOperation.findFirst({
+      where: { id, type: FiatOperationType.DEPOSIT },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            phoneNumber: true,
+            country: true,
+            kycStatus: true,
+            walletAddress: true,
+          },
+        },
+        deposit: true,
+      },
+    });
+    if (!d) throw new NotFoundException('Deposito no encontrado');
+    if (!d.deposit) throw new NotFoundException('Deposito no encontrado');
+    const displayStatus = this.displayStatus(d.status, d.deposit);
+
+    if (!d) throw new NotFoundException('Depósito no encontrado');
+
+    return {
+      id: d.id,
+      referenceCode: d.referenceCode,
+      currency: d.currency,
+      status: displayStatus,
+      userId: d.userId,
+
+      amount: d.amount.toString(),
+      feeRate: d.feeRate.toString(),
+      serviceFee: d.serviceFee.toString(),
+      totalAmount: d.totalAmount.toString(),
+      expectedBOBH: d.deposit.expectedBOBH.toString(),
+      rateUsed: d.rateUsed ? d.rateUsed.toString() : null,
+      rateSource: d.rateSource ?? null,
+      rateQuotedAt: d.rateQuotedAt ? d.rateQuotedAt.toISOString() : null,
+      createdAt: d.createdAt.toISOString(),
+      updatedAt: d.updatedAt.toISOString(),
+      processedAt: d.processedAt ? d.processedAt.toISOString() : null,
+      validatedById: d.validatedById ?? null,
+      validatedAt: d.validatedAt ? d.validatedAt.toISOString() : null,
+      mintedAt: d.deposit.mintedAt ? d.deposit.mintedAt.toISOString() : null,
+      mintTxHash: d.deposit.mintTxHash ?? null,
+      proofUrl: d.deposit.proofUrl ?? null,
+      proofUploadedAt: d.deposit.proofUploadedAt ? d.deposit.proofUploadedAt.toISOString() : null,
+      proofFileName: d.deposit.proofFileName ?? null,
+      proofMimeType: d.deposit.proofMimeType ?? null,
+      rateExpiresAt: d.rateExpiresAt ? d.rateExpiresAt.toISOString() : null,
+      user: d.user,
+      transactions: [],
+    };
+  }
+
+  async decide(u: JwtUser, id: string, dto: AdminDecisionDto) {
+    this.assertAdminOrOperator(u);
+
+    const deposit = await this.prisma.fiatOperation.findFirst({
+      where: { id, type: FiatOperationType.DEPOSIT },
+      include: { deposit: true },
+    });
+    if (!deposit || !deposit.deposit) throw new NotFoundException('Deposito no encontrado');
+    if (!deposit) throw new NotFoundException('Depósito no encontrado');
+
+    // No tocar si ya final
+    if (this.isMinted(deposit.status, deposit.deposit)) {
+      throw new BadRequestException('Este depósito ya fue minteado.');
+    }
+
+    // Exigir comprobante para aprobar (si quieres permitir BOB sin proof, me dices)
+    if (dto.action === AdminDecisionAction.APPROVE && !deposit.deposit.proofUrl) {
+      throw new BadRequestException('No se puede aprobar sin comprobante.');
+    }
+
+    // Si PEN y expiró, no permitir aprobar
+    if (
+      dto.action === AdminDecisionAction.APPROVE &&
+      deposit.currency === 'PEN' &&
+      deposit.rateExpiresAt &&
+      new Date() > deposit.rateExpiresAt
+    ) {
+      await this.prisma.fiatOperation.update({
+        where: { id },
+        data: { status: FiatOperationStatus.RATE_EXPIRED },
+      });
+      throw new BadRequestException('El tipo de cambio expiró. No se puede aprobar.');
+    }
+
+    const newStatus =
+      dto.action === AdminDecisionAction.APPROVE
+        ? FiatOperationStatus.APPROVED
+        : FiatOperationStatus.REJECTED;
+
+    const updated = await this.prisma.fiatOperation.update({
+      where: { id },
+      data: {
+        status: newStatus,
+        validatedById: u.userId,
+        validatedAt: new Date(),
+      },
+      select: {
+        id: true,
+        status: true,
+        validatedById: true,
+        validatedAt: true,
+      },
+    });
+
+    return {
+      depositId: updated.id,
+      status: updated.status,
+      validatedById: updated.validatedById,
+      validatedAt: updated.validatedAt ? updated.validatedAt.toISOString() : null,
+    };
+  }
+}

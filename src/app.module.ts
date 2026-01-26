@@ -9,8 +9,12 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handleba
 import { join } from 'path';
 import { MailModule } from './mail/mail.module';
 import { BanksModule } from './banks/banks.module';
+import { RatesModule } from './rates/rates.module';
+import { DepositsModule } from './deposits/deposits.module';
 import { BankAccountsModule } from './bank-accounts/bank-accounts.module';
+import { AdminDepositsModule } from './admin-deposits/admin-deposits.module';
 import { RetirosModule } from './retiros/retiros.module';
+import { RetiroModule } from './retiro/retiro.module';
 
 @Module({
   imports: [
@@ -45,8 +49,12 @@ import { RetirosModule } from './retiros/retiros.module';
     }),
     MailModule,
     BanksModule,
+    RatesModule,
+    DepositsModule,
     BankAccountsModule,
+    AdminDepositsModule,
     RetirosModule,
+    RetiroModule,
   ],
   controllers: [],
   providers: [],
