@@ -7,28 +7,29 @@ datasource db {
 }
 
 model User {
-  id                      String          @id @default(uuid())
-  email                   String          @unique
+  id                      String                @id @default(uuid())
+  email                   String                @unique
   password                String?
   firstName               String
   lastName                String
   phoneNumber             String?
-  country                 Country         @default(BOLIVIA)
-  walletAddress           String?         @unique
-  kycStatus               KycStatus       @default(UNVERIFIED)
-  createdAt               DateTime        @default(now())
-  updatedAt               DateTime        @updatedAt
+  country                 Country               @default(BOLIVIA)
+  walletAddress           String?               @unique
+  kycStatus               KycStatus             @default(UNVERIFIED)
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
   lastLogin               DateTime?
-  role                    UserRole        @default(USER)
+  role                    UserRole              @default(USER)
   resetPasswordExpiry     DateTime?
   resetPasswordToken      String?
-  isGoogleAccount         Boolean         @default(false)
-  isOnboardingCompleted   Boolean         @default(false)
-  isVerified              Boolean         @default(false)
+  isGoogleAccount         Boolean               @default(false)
+  isOnboardingCompleted   Boolean               @default(false)
+  isVerified              Boolean               @default(false)
   bankAccounts            BankAccount[]
   fiatOperations          FiatOperation[]
-  validatedFiatOperations FiatOperation[] @relation("FiatOperationValidatedBy")
+  validatedFiatOperations FiatOperation[]       @relation("FiatOperationValidatedBy")
   kycDocuments            KycDocument[]
+  verificationRequests    VerificationRequest[]
 
   @@map("users")
 }
@@ -127,6 +128,19 @@ model Banks {
   bankAccounts BankAccount[]
 }
 
+model VerificationRequest {
+  id        String             @id @default(uuid())
+  userId    String
+  imageUrl  String
+  status    VerificationStatus @default(PENDING)
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  user      User               @relation(fields: [userId], references: [id])
+
+  @@index([userId, status])
+  @@map("verification_requests")
+}
+
 enum UserRole {
   USER
   ADMIN
@@ -196,4 +210,10 @@ enum Network {
 enum country_banks {
   Bolivia
   PERU
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
