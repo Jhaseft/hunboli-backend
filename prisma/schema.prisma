@@ -7,18 +7,12 @@ datasource db {
 }
 
 model User {
-<<<<<<< HEAD
   id                      String                  @id @default(uuid())
   email                   String                  @unique
-=======
-  id                      String                @id @default(uuid())
-  email                   String                @unique
->>>>>>> b31727142b038229a78a4653d7f2b8ba767d337f
   password                String?
   firstName               String
   lastName                String
   phoneNumber             String?
-<<<<<<< HEAD
   country                 Country                 @default(BOLIVIA)
   walletAddress           String?                 @unique
   kycStatus               KycStatus               @default(UNVERIFIED)
@@ -36,25 +30,6 @@ model User {
   validatedFiatOperations FiatOperation[]         @relation("FiatOperationValidatedBy")
   kycDocuments            KycDocument[]
   verification_requests   verification_requests[]
-=======
-  country                 Country               @default(BOLIVIA)
-  walletAddress           String?               @unique
-  kycStatus               KycStatus             @default(UNVERIFIED)
-  createdAt               DateTime              @default(now())
-  updatedAt               DateTime              @updatedAt
-  lastLogin               DateTime?
-  role                    UserRole              @default(USER)
-  resetPasswordExpiry     DateTime?
-  resetPasswordToken      String?
-  isGoogleAccount         Boolean               @default(false)
-  isOnboardingCompleted   Boolean               @default(false)
-  isVerified              Boolean               @default(false)
-  bankAccounts            BankAccount[]
-  fiatOperations          FiatOperation[]
-  validatedFiatOperations FiatOperation[]       @relation("FiatOperationValidatedBy")
-  kycDocuments            KycDocument[]
-  verificationRequests    VerificationRequest[]
->>>>>>> b31727142b038229a78a4653d7f2b8ba767d337f
 
   @@map("users")
 }
@@ -153,7 +128,6 @@ model Banks {
   bankAccounts BankAccount[]
 }
 
-<<<<<<< HEAD
 model verification_requests {
   id          String             @id
   userId      String
@@ -165,19 +139,6 @@ model verification_requests {
   users       User               @relation(fields: [userId], references: [id])
 
   @@index([userId, status])
-=======
-model VerificationRequest {
-  id        String             @id @default(uuid())
-  userId    String
-  imageUrl  String
-  status    VerificationStatus @default(PENDING)
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
-  user      User               @relation(fields: [userId], references: [id])
-
-  @@index([userId, status])
-  @@map("verification_requests")
->>>>>>> b31727142b038229a78a4653d7f2b8ba767d337f
 }
 
 enum UserRole {
