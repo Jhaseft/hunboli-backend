@@ -11,6 +11,7 @@ import { MailModule } from './mail/mail.module';
 import { BanksModule } from './banks/banks.module';
 import { BankAccountsModule } from './bank-accounts/bank-accounts.module';
 import { RetirosModule } from './retiros/retiros.module';
+import { RetiroModule } from './retiro/retiro.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { RetirosModule } from './retiros/retiros.module';
     BanksModule,
     BankAccountsModule,
     RetirosModule,
+    RetiroModule,
   ],
   controllers: [],
   providers: [],
