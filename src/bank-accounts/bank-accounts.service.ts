@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { CreateBankAccountDto } from './dto/create-bank-account.dto';
 import { PrismaService } from '../prisma.service';
-
+ 
 @Injectable()
 export class BankAccountsService {
   constructor(private prisma: PrismaService) { }

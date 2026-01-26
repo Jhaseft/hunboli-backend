@@ -26,6 +26,21 @@ enum Country {
   PERU
 }
 
+enum FiatOperationType {
+  DEPOSIT
+  WITHDRAW
+}
+
+enum FiatOperationStatus {
+  PENDING
+  PROOF_SUBMITTED
+  RATE_EXPIRED
+  APPROVED
+  REJECTED
+  PROCESSED
+  FAILED
+}
+
 enum FiatCurrency {
   BOB
   PEN
@@ -61,37 +76,33 @@ model User {
   id          String  @id @default(uuid())
   email       String  @unique
   password    String?
-  //Datos Personales usuario
+
   firstName   String
   lastName    String
   phoneNumber String?
   country     Country @default(BOLIVIA)
 
-  //Datos Blockchain & financieros
-
   walletAddress String?   @unique
   kycStatus     KycStatus @default(UNVERIFIED)
 
-  //Auditoria
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   lastLogin DateTime?
 
-  //Google
-  isGoogleAccount Boolean? @default(false)
+  isGoogleAccount Boolean @default(false)
 
-  //Roles y permisos
   role                  UserRole  @default(USER)
   resetPasswordToken    String?
   resetPasswordExpiry   DateTime?
   isOnboardingCompleted Boolean   @default(false)
+  isVerified            Boolean   @default(false)
 
-  //Relaciones
-  kycDocuments KycDocument[]
-  transactions Transaction[]
-  deposits     Deposit[]
-  bankAccounts BankAccount[]
-  depositsValidated Deposit[] @relation("DepositValidatedBy")
+  kycDocuments  KycDocument[]
+  fiatOperations FiatOperation[]
+  bankAccounts  BankAccount[]
+
+  validatedFiatOperations FiatOperation[] @relation("FiatOperationValidatedBy")
+
   @@map("users")
 }
 
@@ -106,25 +117,98 @@ model KycDocument {
   @@map("kyc_documents")
 }
 
-model Transaction {
-  id          String            @id @default(uuid())
-  user        User              @relation(fields: [userId], references: [id])
-  userId      String
-  type        TransactionType
-  status      TransactionStatus @default(PENDING)
-  // red y hash on-chain
-  network     Network
-  txHash      String?           @unique
-  blockNumber Int?
-  confirmedAt DateTime?
-  amount      Decimal           @db.Decimal(36, 18)
-  deposit     Deposit?          @relation(fields: [depositId], references: [id])
-  depositId   String?
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime?         @updatedAt
+model FiatOperation {
+  id            String            @id @default(uuid())
+  type          FiatOperationType
+
+  user          User              @relation(fields: [userId], references: [id])
+  userId        String
+
+  // Moneda y monto base (sin fee)
+  currency      FiatCurrency
+  amount        Decimal           @db.Decimal(36, 18)
+
+  // Fees comunes
+  feeRate       Decimal           @db.Decimal(10, 6)
+  serviceFee    Decimal           @db.Decimal(36, 18)
+  totalAmount   Decimal           @db.Decimal(36, 18)
+
+  // Rate lock común (si aplica)
+  rateUsed      Decimal?          @db.Decimal(36, 18)
+  rateSource    String?
+  rateQuotedAt  DateTime?
+  rateExpiresAt DateTime?
+
+  referenceCode String            @unique
+
+  status        FiatOperationStatus @default(PENDING)
+
+  // Auditoría común (aprobación/rechazo)
+  validatedById String?
+  validatedBy   User?             @relation("FiatOperationValidatedBy", fields: [validatedById], references: [id])
+  validatedAt   DateTime?
+
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  processedAt   DateTime?
+
+  // Detalles por tipo (1:1)
+  deposit       DepositDetail?
+  withdrawal    WithdrawalDetail?
+
   @@index([userId, createdAt])
-  @@index([txHash])
-  @@map("transactions")
+  @@index([status, createdAt])
+  @@map("fiat_operations")
+}
+ model DepositDetail {
+  id            String        @id @default(uuid())
+
+  operation     FiatOperation @relation(fields: [operationId],references: [id],onDelete: Cascade)
+  operationId   String        @unique
+
+  expectedBOBH  Decimal       @db.Decimal(36, 18)
+
+  mintTxHash    String?
+  mintedAt      DateTime?
+
+  proofUrl        String?
+  proofUploadedAt DateTime?
+  proofFileName   String?
+  proofMimeType   String?
+
+  @@map("deposit_details")
+}
+
+model WithdrawalDetail {
+  id            String        @id @default(uuid())
+
+  operation     FiatOperation @relation(fields: [operationId],references: [id],onDelete: Cascade)
+  operationId   String        @unique
+
+  bankAccount   BankAccount   @relation(fields: [bankAccountId], references: [id])
+  bankAccountId BigInt
+
+  @@index([bankAccountId])
+  @@map("withdrawal_details")
+}
+
+
+model BankAccount {
+  id            BigInt       @id @default(autoincrement())
+  user          User         @relation(fields: [userId], references: [id])
+  userId        String
+  bank          Banks        @relation(fields: [bankId], references: [id])
+  bankId        Int
+  accountNumber String       @db.VarChar(50)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime?    @updatedAt
+
+  withdrawaldetail WithdrawalDetail[]
+
+  @@index([userId])
+  @@index([bankId])
+  @@index([accountNumber])
+  @@map("bank_accounts")
 }
 
 enum country_banks {
@@ -140,62 +224,4 @@ model Banks {
   createdAt   DateTime          @default(now())
   updatedAt   DateTime?         @updatedAt
   bankAccounts BankAccount[]
-}
-
-model Deposit {
-  id            String        @id @default(uuid())
-  user          User          @relation(fields: [userId], references: [id])
-  userId        String
-  currency      FiatCurrency  //moneda 
-  //Dinero depositado
-  amount        Decimal       @db.Decimal(36, 18)         //monto depositado (sin fee)
-  feeRate       Decimal       @db.Decimal(10, 6)         //comision fija 0.001 (0.1%)
-  serviceFee    Decimal       @db.Decimal(36, 18)         //amount * feeRate
-  totalAmount   Decimal       @db.Decimal(36, 18)         //amount + serviceFee
-  //rate lock (para el PEN)
-  rateUsed      Decimal?       @db.Decimal(36, 18)         // BOB: 1, PEN: PEN->BOB del momento
-  rateSource    String?
-  rateQuotedAt  DateTime?
-  rateExpiresAt DateTime?
-  expectedBOBH  Decimal       @db.Decimal(36, 18)         // BOB: amount, PEN: amount * rateUsed
-  referenceCode String        @unique
-  status        DepositStatus @default(PENDING)
-  //auditoría de validación
-  validatedById String?       //quién aprobó/rechazó (admin u operador)
-  validatedBy   User?         @relation("DepositValidatedBy", fields: [validatedById], references: [id])
-  validatedAt   DateTime?   
-  //mint
-  mintTxHash    String?       //hash de la tx de mint
-  mintedAt      DateTime?
-  // Comprobante
-  proofUrl       String?
-  proofUploadedAt DateTime?
-  proofFileName   String?
-  proofMimeType   String?
-
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  processedAt   DateTime?     
-
-  //Relaciones
-  transactions Transaction[]
-  
-  @@map("deposits")
-}
-
-
-model BankAccount {
-  id            BigInt       @id @default(autoincrement())
-  user          User         @relation(fields: [userId], references: [id])
-  userId        String
-  bank          Banks        @relation(fields: [bankId], references: [id])
-  bankId        Int
-  accountNumber String       @db.VarChar(50)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime?    @updatedAt
-
-  @@index([userId])
-  @@index([bankId])
-  @@index([accountNumber])
-  @@map("bank_accounts")
 }
