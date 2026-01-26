@@ -91,11 +91,20 @@ model DepositDetail {
 }
 
 model WithdrawalDetail {
-  id            String        @id @default(uuid())
-  operationId   String        @unique
-  bankAccountId BigInt
-  bankAccount   BankAccount   @relation(fields: [bankAccountId], references: [id])
-  operation     FiatOperation @relation(fields: [operationId], references: [id], onDelete: Cascade)
+  id               String      @id @default(uuid())
+  operationId      String      @unique
+
+  // Resultado económico
+  burnedBOBH       Decimal     @db.Decimal(36, 18)  // BOBH descontado del usuario
+  fiatSent         Decimal     @db.Decimal(36, 18)  // fiat enviado al banco
+
+  bankAccountId    BigInt
+  bankAccount      BankAccount @relation(fields: [bankAccountId], references: [id])
+
+  payoutTxRef      String?     // referencia bancaria / lote / transferencia
+  paidAt           DateTime?   // cuando se ejecutó el pago
+
+  operation        FiatOperation @relation(fields: [operationId], references: [id], onDelete: Cascade)
 
   @@index([bankAccountId])
   @@map("withdrawal_details")
