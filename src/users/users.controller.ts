@@ -26,8 +26,9 @@ import * as bcrypt from 'bcrypt';
 interface JwtUser {
   userId: string;
   email: string;
-  firstName: string;
+  role: UserRole;
   kycStatus: KycStatus;
+  isVerified: boolean;
 }
 
 @Controller('users')
