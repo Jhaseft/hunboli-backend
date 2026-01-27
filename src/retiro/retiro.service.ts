@@ -1,26 +1,36 @@
 import { Injectable } from '@nestjs/common';
-import { CreateRetiroDto } from './dto/create-retiro.dto';
-import { UpdateRetiroDto } from './dto/update-retiro.dto';
+import { PrismaService } from '../prisma.service';
+import { CreateFiatOperationDto } from './dto/fiat-operation.dto';
+import { FiatOperationType, FiatOperationStatus } from '@prisma/client';
 
 @Injectable()
 export class RetiroService {
-  create(createRetiroDto: CreateRetiroDto) {
-    return 'This action adds a new retiro';
-  }
+  constructor(private prisma: PrismaService) { }
 
-  findAll() {
-    return `This action returns all retiro`;
-  }
- 
-  findOne(id: number) {
-    return `This action returns a #${id} retiro`;
-  }
+  async create(dto: CreateFiatOperationDto, userId: string) {
+    try {
+      const retiro = await this.prisma.fiatOperation.create({
+        data: {
+          type: "WITHDRAW", // prueba como string
+          userId,
+          currency: dto.currency,
+          amount: dto.amount,
+          feeRate: dto.feeRate,
+          serviceFee: dto.serviceFee,
+          totalAmount: dto.totalAmount,
+          rateUsed: dto.rateUsed,
+          rateSource: dto.rateSource,
+          rateQuotedAt: dto.rateQuotedAt,
+          rateExpiresAt: dto.rateExpiresAt,
+          referenceCode: dto.referenceCode,
+          status: "PENDING",
+        },
+      });
 
-  update(id: number, updateRetiroDto: UpdateRetiroDto) {
-    return `This action updates a #${id} retiro`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} retiro`;
+      return { success: true, operation: retiro };
+    } catch (error) {
+      console.log("Error creando retiro:", error);
+      throw error; // para que veas el detalle en Postman / Thunder Client
+    }
   }
 }
