@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, UseInterceptors, UploadedFile, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { VerificationService } from './verification.service';
 import { CreateVerificationDto } from './dto/create-verification.dto';
 import { UpdateVerificationDto } from './dto/update-verification.dto';
@@ -38,8 +38,15 @@ export class VerificationController {
 
     const userId = user.userId;
     return this.verificationService.createRequest(userId, file);
+  }
 
-
+  @Get('pending-requests')
+  @UseGuards(JwtAuthGuard)
+  async getPendingRequests(@CurrentUser() user: JwtUser) {
+    if (user.role !== 'ADMIN') {
+      throw new ForbiddenException('Acceso denegado');
+    }
+    return this.verificationService.findPendingRequests();
   }
 
   @Post()

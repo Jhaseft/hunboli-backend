@@ -24,6 +24,19 @@ export class VerificationService {
     });
   }
 
+  async findPendingRequests() {
+    return this.prisma.verification_requests.findMany({
+      where: { status: 'PENDING' },
+      include: {
+        users: {
+          select: { id: true, firstName: true, lastName: true, email: true }
+        }
+      }
+    });
+  }
+
+
+
 
   create(createVerificationDto: CreateVerificationDto) {
     return 'This action adds a new verification';
