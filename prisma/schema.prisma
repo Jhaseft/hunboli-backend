@@ -84,6 +84,10 @@ model DepositDetail {
   proofUploadedAt DateTime?
   proofFileName   String?
   proofMimeType   String?
+  reviewNote      String?
+  reviewById      String?
+  reviewedAt      DateTime?
+
   operation       FiatOperation @relation(fields: [operationId], references: [id], onDelete: Cascade)
 
   @@map("deposit_details")
@@ -155,6 +159,7 @@ enum FiatOperationType {
 enum FiatOperationStatus {
   PENDING
   PROOF_SUBMITTED
+  NEED_CORRECTION
   RATE_EXPIRED
   APPROVED
   REJECTED
