@@ -138,12 +138,12 @@ model Banks {
 }
 
 model verification_requests {
-  id        String             @id
+  id        String             @id @default(uuid())
   userId    String
   imageUrl  String
   status    VerificationStatus @default(PENDING)
   createdAt DateTime           @default(now())
-  updatedAt DateTime
+  updatedAt DateTime           @updatedAt
   users     User               @relation(fields: [userId], references: [id])
 
   @@index([userId, status])
