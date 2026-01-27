@@ -11,7 +11,7 @@ export class RetiroService {
   findAll() {
     return `This action returns all retiro`;
   }
-
+ 
   findOne(id: number) {
     return `This action returns a #${id} retiro`;
   }
