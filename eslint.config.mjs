@@ -44,7 +44,7 @@ export default tseslint.config(
       'prettier/prettier': [
         'warn',
         {
-          endOfLine: 'auto',
+          endOfLine: 'ignore',
           printWidth: 120,
         },
       ],

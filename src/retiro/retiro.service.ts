@@ -1,15 +1,24 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateRetiroDto } from './dto/create-retiro.dto';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class RetiroService {
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private prisma: PrismaService,
+    private readonly config: ConfigService) { }
+
+  getComisionMinima(): number {
+    return Number(this.config?.get('COMISION_MINIMA'));
+  }
 
   async create(dto: CreateRetiroDto, userId: string) {
+
     const referenceCode = `RET-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-    // Buscar cuenta bancaria con JOIN al banco
+    const servicefee = this.getComisionMinima();
+
     const bankAccount = await this.prisma.bankAccount.findUnique({
       where: { id: dto.bankAccountId },
       include: {
@@ -48,11 +57,9 @@ export class RetiroService {
       }
     }
 
-    const totalAmount = dto.amount + dto.serviceFee;
-    
+    const totalAmount = dto.amount + servicefee;
 
-    const FiatSent = parseInt(totalAmount) - parseInt(dto.serviceFee) ;
-    
+    const FiatSent = parseInt(totalAmount) - parseInt(servicefee);
     try {
       const result = await this.prisma.$transaction(async (tx) => {
         //  Crear Fiat Operation

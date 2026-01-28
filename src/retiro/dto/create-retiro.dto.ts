@@ -13,13 +13,9 @@ export class CreateRetiroDto {
   @IsDecimal({ decimal_digits: '0,6' })
   feeRate: string;
 
-  @IsDecimal({ decimal_digits: '0,18' })
-  serviceFee: string;
-
-
   @IsOptional()
   @IsDecimal({ decimal_digits: '0,18' })
-  rateUsed?: string;
+  rateUsed: string;
 
   @IsOptional()
   @IsString()
