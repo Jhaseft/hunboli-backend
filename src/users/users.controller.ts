@@ -22,7 +22,7 @@ import { CompleteProfileDto } from './dto/complete-profile.dto';
 import { EditPhoneNumberDto } from './dto/edit-phone-number.dto';
 import { EditPasswordDto } from './dto/edit-password.dto';
 import * as bcrypt from 'bcrypt';
-
+ 
 interface JwtUser {
   userId: string;
   email: string;
