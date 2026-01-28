@@ -78,25 +78,32 @@ export class VerificationService {
   }
 
 
-
-
-  create(createVerificationDto: CreateVerificationDto) {
-    return 'This action adds a new verification';
-  }
-
   findAll() {
-    return `This action returns all verification`;
+    return this.prisma.verification_requests.findMany({
+      include: {
+        users: {
+          select: { id: true, firstName: true, lastName: true, email: true }
+        }
+      }
+    });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} verification`;
+  findOne(requestId: string) {
+    return this.prisma.verification_requests.findUnique({
+      where: { id: requestId },
+      include: {
+        users: {
+          select: { id: true, firstName: true, lastName: true, email: true }
+        }
+      }
+    });
   }
 
   update(id: number, updateVerificationDto: UpdateVerificationDto) {
     return `This action updates a #${id} verification`;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} verification`;
+  remove(requestId: string) {
+    return this.prisma.verification_requests.delete({ where: { id: requestId } });
   }
 }
