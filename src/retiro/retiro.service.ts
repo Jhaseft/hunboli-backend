@@ -78,7 +78,7 @@ export class RetiroService {
         const withdrawalDetail = await tx.withdrawalDetail.create({
           data: {
             operationId: fiatOperation.id,
-            burnedBOBH: BurnedBOBH,
+            burnedBOBH: totalAmount,
             fiatSent: FiatSent,
             bankAccountId: dto.bankAccountId,
           },
