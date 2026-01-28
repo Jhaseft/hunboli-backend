@@ -1,15 +1,23 @@
-import { Controller, UseGuards, Post, Body, Req } from '@nestjs/common';
+import { Controller, UseGuards, Post, Body } from '@nestjs/common';
 import { RetiroService } from './retiro.service';
-import { CreateFiatOperationDto } from './dto/fiat-operation.dto';
+import { CreateRetiroDto } from './dto/create-retiro.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+
+interface JwtUser {
+  userId: string;
+  email: string;
+  isVerified: boolean;
+}
 
 @Controller('retiro')
 export class RetiroController {
-  constructor(private retiroService: RetiroService) { }
+  constructor(private retiroService: RetiroService) {}
 
-
+  @UseGuards(JwtAuthGuard)
   @Post()
-  create(@Body() dto: CreateFiatOperationDto, @Req() req: any) {
-    return this.retiroService.create(dto, String(req.user.id));
+  create(@Body() dto: CreateRetiroDto, @CurrentUser() user: JwtUser) {
+    console.log(user.userId);
+    return this.retiroService.create(dto, String(user.userId));
   }
 }

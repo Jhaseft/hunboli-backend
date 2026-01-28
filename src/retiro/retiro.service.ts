@@ -1,36 +1,106 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { CreateFiatOperationDto } from './dto/fiat-operation.dto';
-import { FiatOperationType, FiatOperationStatus } from '@prisma/client';
+import { CreateRetiroDto } from './dto/create-retiro.dto';
 
 @Injectable()
 export class RetiroService {
   constructor(private prisma: PrismaService) { }
 
-  async create(dto: CreateFiatOperationDto, userId: string) {
+  async create(dto: CreateRetiroDto, userId: string) {
+    const referenceCode = `RET-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+    // Buscar cuenta bancaria con JOIN al banco
+    const bankAccount = await this.prisma.bankAccount.findUnique({
+      where: { id: dto.bankAccountId },
+      include: {
+        bank: true,
+      },
+    });
+
+    if (!bankAccount) {
+      throw new NotFoundException('La cuenta bancaria no existe');
+    }
+
+    const converte_amount = parseInt(dto.amount);
+
+    if (converte_amount < 10000) {
+      throw new BadRequestException('El monto es menor a 10000 BOBHs');
+    }
+
+    console.log(bankAccount);
+
+    const { bank } = bankAccount;
+
+    // Validación de moneda BOB
+    if (dto.currency === 'BOB') {
+      if (bank.country !== 'Bolivia') {
+        throw new BadRequestException(
+          `La cuenta bancaria es de tipo ${bank.country} y no admite retiros en ${dto.currency}`,
+        );
+      }
+    }
+
+    if (dto.currency === 'PEN') {
+      if (bank.country !== 'PERU') {
+        throw new BadRequestException(
+          `La cuenta bancaria es de tipo ${bank.country} y no admite retiros en ${dto.currency}`,
+        );
+      }
+    }
+
+    const totalAmount = dto.amount + dto.serviceFee;
+    
+
+    const FiatSent = parseInt(totalAmount) - parseInt(dto.serviceFee) ;
+    
     try {
-      const retiro = await this.prisma.fiatOperation.create({
-        data: {
-          type: "WITHDRAW", // prueba como string
-          userId,
-          currency: dto.currency,
-          amount: dto.amount,
-          feeRate: dto.feeRate,
-          serviceFee: dto.serviceFee,
-          totalAmount: dto.totalAmount,
-          rateUsed: dto.rateUsed,
-          rateSource: dto.rateSource,
-          rateQuotedAt: dto.rateQuotedAt,
-          rateExpiresAt: dto.rateExpiresAt,
-          referenceCode: dto.referenceCode,
-          status: "PENDING",
-        },
+      const result = await this.prisma.$transaction(async (tx) => {
+        //  Crear Fiat Operation
+        const fiatOperation = await tx.fiatOperation.create({
+          data: {
+            type: 'WITHDRAW',
+            userId,
+            currency: dto.currency,
+            amount: dto.amount,
+            feeRate: dto.feeRate,
+            serviceFee: dto.serviceFee,
+            totalAmount: totalAmount,
+            rateUsed: dto.rateUsed,
+            rateSource: dto.rateSource,
+            rateQuotedAt: dto.rateQuotedAt,
+            rateExpiresAt: dto.rateExpiresAt,
+            referenceCode,
+            status: 'PENDING',
+          },
+        });
+
+        // Crear Withdrawal Detail
+        const withdrawalDetail = await tx.withdrawalDetail.create({
+          data: {
+            operationId: fiatOperation.id,
+            burnedBOBH: BurnedBOBH,
+            fiatSent: FiatSent,
+            bankAccountId: dto.bankAccountId,
+          },
+        });
+
+        return {
+          fiatOperation,
+          withdrawalDetail,
+        };
       });
 
-      return { success: true, operation: retiro };
+      return {
+        success: true,
+        fiatOperation: result.fiatOperation,
+        withdrawalDetail: {
+          ...result.withdrawalDetail,
+          bankAccountId: result.withdrawalDetail.bankAccountId.toString(),
+        },
+      };
     } catch (error) {
-      console.log("Error creando retiro:", error);
-      throw error; // para que veas el detalle en Postman / Thunder Client
+      console.error('Error creando retiro completo:', error);
+      throw error;
     }
   }
 }
