@@ -13,7 +13,8 @@ import { RatesModule } from './rates/rates.module';
 import { DepositsModule } from './deposits/deposits.module';
 import { BankAccountsModule } from './bank-accounts/bank-accounts.module';
 import { AdminDepositsModule } from './admin-deposits/admin-deposits.module';
-import { RetirosModule } from './retiros/retiros.module';
+import { RetiroModule } from './retiro/retiro.module';
+import { VerificationModule } from './verification/verification.module';
 
 @Module({
   imports: [
@@ -52,7 +53,8 @@ import { RetirosModule } from './retiros/retiros.module';
     DepositsModule,
     BankAccountsModule,
     AdminDepositsModule,
-    RetirosModule,
+    RetiroModule,
+    VerificationModule,
   ],
   controllers: [],
   providers: [],

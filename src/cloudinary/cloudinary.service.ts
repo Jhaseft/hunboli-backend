@@ -65,7 +65,39 @@ export class CloudinaryService {
     const resourceType: 'image' | 'raw' = isImage ? 'image' : 'raw';
     const folder = `hunboli/users/${userId}/deposits/${depositId}`;
     const publicId = `proof_${Date.now()}`;
- 
+
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        { folder, public_id: publicId, resource_type: resourceType },
+        (error, result) => {
+          if (error || !result?.secure_url) {
+            return reject(
+              new InternalServerErrorException(
+                'No se pudo subir el comprobante a Cloudinary.',
+              ),
+            );
+          }
+          resolve({ secureUrl: result.secure_url, publicId: result.public_id });
+        },
+      );
+
+      uploadStream.end(file.buffer);
+    });
+  }
+
+  async uploadVerificationFile(params: {
+    file: Express.Multer.File;
+    userId: string;
+  }): Promise<{ secureUrl: string; publicId: string }> {
+    const { file, userId } = params;
+    const isImage = file.mimetype.startsWith('image/');
+    const isPdf = file.mimetype === 'application/pdf';
+    if (!isImage && !isPdf) {
+      throw new InternalServerErrorException('Tipo de archivo no soportado.');
+    }
+    const resourceType: 'image' | 'raw' = isImage ? 'image' : 'raw';
+    const folder = `hunboli/users/${userId}/deposits/verification`;
+    const publicId = `proof_${Date.now()}`;
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         { folder, public_id: publicId, resource_type: resourceType },
