@@ -9,6 +9,8 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { KycStatus, UserRole } from '@prisma/client';
+import { IsUUID } from 'class-validator';
+import { AcceptRequestDto } from './dto/accept-request.dto';
 interface JwtUser {
   userId: string;
   email: string;
@@ -52,8 +54,15 @@ export class VerificationController {
   @Patch("accept")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  async acceptRequest(@Body() body: { requestId: string }) {
+  async acceptRequest(@Body() body: AcceptRequestDto) {
+    return this.verificationService.acceptPendingRequest(body.requestId)
+  }
 
+  @Patch("reject")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async rejectRequest(@Body() body: AcceptRequestDto) {
+    return this.verificationService.rejectPendingRequest(body.requestId);
 
   }
 

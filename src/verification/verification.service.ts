@@ -1,9 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateVerificationDto } from './dto/create-verification.dto';
 import { UpdateVerificationDto } from './dto/update-verification.dto';
 import { PrismaService } from 'src/prisma.service';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
-
+import request from 'supertest';
 @Injectable()
 export class VerificationService {
 
@@ -32,6 +32,48 @@ export class VerificationService {
           select: { id: true, firstName: true, lastName: true, email: true }
         }
       }
+    });
+  }
+
+  async acceptPendingRequest(requestId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const request = await tx.verification_requests.findUnique({ where: { id: requestId } });
+
+      if (!request) throw new NotFoundException("Solicitud no encontrada");
+      if (request.status !== 'PENDING') {
+        throw new BadRequestException("La solicitud ya fue procesada");
+      }
+
+      await tx.user.update({
+        where: { id: request.userId },
+        data: { isVerified: true }
+      });
+
+      return tx.verification_requests.update({
+        where: { id: requestId },
+        data: { status: 'APPROVED' }
+      });
+    });
+  }
+
+  async rejectPendingRequest(requestId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const request = await tx.verification_requests.findUnique({ where: { id: requestId } });
+
+      if (!request) throw new NotFoundException("Solicitud no encontrada");
+      if (request.status !== 'PENDING') {
+        throw new BadRequestException("La solicitud ya fue procesada");
+      }
+
+      await tx.user.update({
+        where: { id: request.userId },
+        data: { isVerified: false }
+      });
+
+      return tx.verification_requests.update({
+        where: { id: requestId },
+        data: { status: 'REJECTED' }
+      });
     });
   }
 
