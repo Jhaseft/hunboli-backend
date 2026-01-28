@@ -3,6 +3,8 @@ import { VerificationService } from './verification.service';
 import { CreateVerificationDto } from './dto/create-verification.dto';
 import { UpdateVerificationDto } from './dto/update-verification.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/auth/guards/roles.guard';
+import { Roles } from 'src/auth/decorators/roles.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
@@ -38,6 +40,19 @@ export class VerificationController {
 
     const userId = user.userId;
     return this.verificationService.createRequest(userId, file);
+  }
+
+  @Get('pending-requests')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getPendingRequests() {
+    return this.verificationService.findPendingRequests();
+  }
+
+  @Patch("accept")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async acceptRequest(@Body() body: { requestId: string }) {
 
 
   }
