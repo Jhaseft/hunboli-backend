@@ -3,7 +3,7 @@ import { CreateVerificationDto } from './dto/create-verification.dto';
 import { UpdateVerificationDto } from './dto/update-verification.dto';
 import { PrismaService } from 'src/prisma.service';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
-import request from 'supertest';
+
 @Injectable()
 export class VerificationService {
 
