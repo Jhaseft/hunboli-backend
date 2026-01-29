@@ -3,7 +3,7 @@ import { CreateVerificationDto } from './dto/create-verification.dto';
 import { UpdateVerificationDto } from './dto/update-verification.dto';
 import { PrismaService } from 'src/prisma.service';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
-import request from 'supertest';
+
 @Injectable()
 export class VerificationService {
 
@@ -97,6 +97,15 @@ export class VerificationService {
         }
       }
     });
+  }
+
+  async findStatusByUserId(id: string) {
+    const data = await this.prisma.verification_requests.findFirst({
+      where: { userId: id }
+    })
+    if (!data) throw new NotFoundException("Solicitud de verificacion no encontrada");
+    return data
+
   }
 
   update(id: number, updateVerificationDto: UpdateVerificationDto) {
