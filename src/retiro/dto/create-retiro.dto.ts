@@ -10,17 +10,6 @@ export class CreateRetiroDto {
   @IsDecimal({ decimal_digits: '0,18' })
   amount: string;
 
-  @IsDecimal({ decimal_digits: '0,6' })
-  feeRate: string;
-
-  @IsOptional()
-  @IsDecimal({ decimal_digits: '0,18' })
-  rateUsed: string;
-
-  @IsOptional()
-  @IsString()
-  rateSource?: string;
-
   @IsOptional()
   @IsDateString()
   rateQuotedAt?: string;
