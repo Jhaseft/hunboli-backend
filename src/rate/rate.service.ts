@@ -20,6 +20,10 @@ export class RateService {
     private getRateBobToBobh(): number {
       return Number(this.config.get('BOB_TO_BOBH'));
     }
+
+    private getMontoMinimo(): number {
+      return Number(this.config.get('Monto_Minimo'));
+    }
   
   GetCom() {
     return this.getComisionMinima();
@@ -35,6 +39,10 @@ export class RateService {
 
   GetBobtoBobh() {
     return this.getRateBobToBobh();
+  }
+
+  GetMinMonto() {
+    return this.getMontoMinimo();
   }
 
 }

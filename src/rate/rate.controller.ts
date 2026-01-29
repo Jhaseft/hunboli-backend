@@ -10,7 +10,7 @@ export class RateController {
   GetComision() {
     return this.rateService.GetCom();
   }
-
+ 
   @UseGuards(JwtAuthGuard)
   @Get('porcentaje')
   GetPorcentaje() {
@@ -27,6 +27,12 @@ export class RateController {
   @Get('bobtobobh')
   GetBOB_TO_BOBH() {
     return this.rateService.GetBobtoBobh();
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('minim_amount')
+  GetMinAmount() {
+    return this.rateService.GetMinMonto();
   }
 
 

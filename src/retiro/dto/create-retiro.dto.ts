@@ -18,8 +18,6 @@ export class CreateRetiroDto {
   @IsDateString()
   rateExpiresAt?: string;
 
-  @IsString()
-  referenceCode: string;
 
   // ---- WITHDRAWAL DETAIL ----
 
