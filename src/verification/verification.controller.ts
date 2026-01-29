@@ -9,7 +9,6 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { KycStatus, UserRole } from '@prisma/client';
-import { IsUUID } from 'class-validator';
 import { AcceptRequestDto } from './dto/accept-request.dto';
 interface JwtUser {
   userId: string;
@@ -64,6 +63,13 @@ export class VerificationController {
   async rejectRequest(@Body() body: AcceptRequestDto) {
     return this.verificationService.rejectPendingRequest(body.requestId);
 
+  }
+
+  @Get("status")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.USER)
+  async findStatus(@CurrentUser() user: JwtUser) {
+    return this.verificationService.findStatusByUserId(user.userId);
   }
 
   @Get()

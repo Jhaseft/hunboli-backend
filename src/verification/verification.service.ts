@@ -99,6 +99,15 @@ export class VerificationService {
     });
   }
 
+  async findStatusByUserId(id: string) {
+    const data = await this.prisma.verification_requests.findFirst({
+      where: { userId: id }
+    })
+    if (!data) throw new NotFoundException("Solicitud de verificacion no encontrada");
+    return data
+
+  }
+
   update(id: number, updateVerificationDto: UpdateVerificationDto) {
     return `This action updates a #${id} verification`;
   }
