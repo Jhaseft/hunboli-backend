@@ -23,11 +23,21 @@ export class AdminRetirosController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Get()
-  findAll(
+  findAll( 
     @Query('page') page = '1',
     @Query('limit') limit = '10',
   ) {
     return this.adminRetirosService.getAllburns(Number(page), Number(limit));
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @Get('count-pending')
+  getPendingCount( 
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+  ) {
+    return this.adminRetirosService.getPendingCount();
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
