@@ -103,7 +103,11 @@ model WithdrawalDetail {
 
   payoutTxRef String? // referencia bancaria / lote / transferencia
   paidAt      DateTime? // cuando se ejecutó el pago
-
+  logProofUrl String? // url del comprobante de pago
+  proofUploadedAt DateTime?//cuando se subio el comprobante
+  cloudinaryPublicId String? // id publico en cloudinary
+  createdAt          DateTime?           @default(now())
+  updatedAt          DateTime?           @updatedAt
   operation FiatOperation @relation(fields: [operationId], references: [id], onDelete: Cascade)
 
   @@index([bankAccountId])
