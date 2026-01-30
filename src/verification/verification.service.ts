@@ -3,6 +3,7 @@ import { CreateVerificationDto } from './dto/create-verification.dto';
 import { UpdateVerificationDto } from './dto/update-verification.dto';
 import { PrismaService } from 'src/prisma.service';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
+import { VerificationStatus } from '@prisma/client';
 
 @Injectable()
 export class VerificationService {
@@ -27,6 +28,16 @@ export class VerificationService {
   async findPendingRequests() {
     return this.prisma.verification_requests.findMany({
       where: { status: 'PENDING' },
+      include: {
+        users: {
+          select: { id: true, firstName: true, lastName: true, email: true }
+        }
+      }
+    });
+  }
+  async findRequestsByParam(param: VerificationStatus) {
+    return this.prisma.verification_requests.findMany({
+      where: { status: param },
       include: {
         users: {
           select: { id: true, firstName: true, lastName: true, email: true }
