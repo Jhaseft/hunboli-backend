@@ -7,7 +7,7 @@ export class AdminFiatOperationsController {
 
     @Patch(':id/request-correction')
     async requestCorrection(@Param('id') id: string, @Body() body: RequestCorrectionDto, @Req() req) {
-        conts adminId = req.user.id;
+        const adminId = req.user.userid;
         return this.service.requestDepositCorrection(adminId, id, body.note);
     }
 }

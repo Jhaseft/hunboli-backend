@@ -191,53 +191,57 @@ export class DepositsService {
       where: { id: depositId, type: FiatOperationType.DEPOSIT },
       include: { deposit: true },
     });
-    if (!deposit || !deposit.deposit) throw new NotFoundException('Deposito no encontrado');
-    if (!deposit) throw new NotFoundException('Depósito no encontrado');
-    if (deposit.userId !== userId)
-      throw new ForbiddenException('No tienes acceso a este depósito');
 
-    // Si PEN y el rate expiró, marcamos RATE_EXPIRED y no aceptamos comprobante
-    if (deposit.currency === 'PEN' && deposit.rateExpiresAt) {
+    if (!deposit || !deposit.deposit) throw new NotFoundException('Deposito no encontrado');
+    if (deposit.userId !== userId) {
+      throw new ForbiddenException('No tienes acceso a este depósito');
+    }
+
+    // Solo permitimos subir comprobante en estos estados
+    const allowedStatuses: FiatOperationStatus[] = [
+      FiatOperationStatus.PENDING,
+      FiatOperationStatus.NEED_CORRECTION,
+    ];
+
+    if (!allowedStatuses.includes(deposit.status)) {
+      throw new BadRequestException('No puedes subir comprobante en este estado.');
+    }
+
+    // Si PEN: el rate solo bloquea en el PRIMER envío (PENDING)
+    if (
+      deposit.currency === 'PEN' &&
+      deposit.status === FiatOperationStatus.PENDING &&
+      deposit.rateExpiresAt
+    ) {
       const now = new Date();
       if (now > deposit.rateExpiresAt) {
         await this.prisma.fiatOperation.update({
           where: { id: depositId },
           data: { status: FiatOperationStatus.RATE_EXPIRED },
         });
-        throw new BadRequestException(
-          'El tipo de cambio expiró. Crea un nuevo depósito.',
-        );
+
+        throw new BadRequestException('El tipo de cambio expiró. Crea un nuevo depósito.');
       }
     }
 
-    // Estados donde NO aceptamos comprobante
-    if (
-      deposit.status === FiatOperationStatus.REJECTED ||
-      this.isMinted(deposit.status, deposit.deposit)
-    ) {
-      throw new BadRequestException(
-        'No puedes subir comprobante en este estado.',
-      );
-    }
-
-
     // Validación básica de archivo (además del interceptor)
-    const allowed = [
-      'image/jpeg',
-      'image/png',
-      'image/webp',
-      'application/pdf',
-    ];
-    if (!allowed.includes(file.mimetype)) {
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    if (!allowedMimes.includes(file.mimetype)) {
       throw new BadRequestException('Solo se permite JPG, PNG, WEBP o PDF.');
     }
 
+    // Subimos a Cloudinary
     const uploaded = await this.cloudinaryService.uploadDepositProof({
       file,
       userId,
       depositId,
       referenceCode: deposit.referenceCode,
     });
+
+    const now = new Date();
+
+    // Si venía de NEED_CORRECTION, limpiamos la nota de revisión
+    const shouldClearReview = deposit.status === FiatOperationStatus.NEED_CORRECTION;
 
     const updated = await this.prisma.fiatOperation.update({
       where: { id: depositId },
@@ -246,9 +250,17 @@ export class DepositsService {
         deposit: {
           update: {
             proofUrl: uploaded.secureUrl,
-            proofUploadedAt: new Date(),
+            proofUploadedAt: now,
             proofFileName: file.originalname,
             proofMimeType: file.mimetype,
+
+            ...(shouldClearReview
+              ? {
+                  reviewNote: null,
+                  reviewedById: null,
+                  reviewedAt: null,
+                }
+              : {}),
           },
         },
       },
@@ -262,104 +274,11 @@ export class DepositsService {
       proofUploadedAt: updated.deposit?.proofUploadedAt?.toISOString() ?? null,
       proofFileName: updated.deposit?.proofFileName ?? null,
       proofMimeType: updated.deposit?.proofMimeType ?? null,
-    };
-  }
 
-  async listMyDeposits(userId: string, q: ListMyDepositsQueryDto) {
-    if (!userId) throw new BadRequestException('Usuario no autenticado');
-
-    const limit = Math.min(Math.max(q.limit ?? 10, 1), 50);
-    const cursor = q.cursor?.trim() || undefined;
-
-    const rows = await this.prisma.fiatOperation.findMany({
-      where: { userId, type: FiatOperationType.DEPOSIT },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: limit + 1,
-      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-      select: {
-        id: true,
-        referenceCode: true,
-        currency: true,
-        status: true,
-
-        amount: true,
-        feeRate: true,
-        serviceFee: true,
-        totalAmount: true,
-
-        rateUsed: true,
-        rateSource: true,
-        rateQuotedAt: true,
-        rateExpiresAt: true,
-
-        validatedById: true,
-        validatedAt: true,
-
-        createdAt: true,
-        updatedAt: true,
-        processedAt: true,
-
-        deposit: {
-          select: {
-            expectedBOBH: true,
-            proofUrl: true,
-            proofUploadedAt: true,
-            proofFileName: true,
-            proofMimeType: true,
-            mintTxHash: true,
-            mintedAt: true,
-          },
-        },
-      },
-    });
-
-    const hasMore = rows.length > limit;
-    const items = hasMore ? rows.slice(0, limit) : rows;
-
-    const nextCursor = hasMore ? items[items.length - 1]?.id ?? null : null;
-
-    return {
-      items: items.map((d) => {
-        const displayStatus = this.displayStatus(d.status, d.deposit);
-
-        return {
-          id: d.id,
-          referenceCode: d.referenceCode,
-          currency: d.currency,
-          status: displayStatus,
-
-          amount: d.amount.toString(),
-          feeRate: d.feeRate.toString(),
-          serviceFee: d.serviceFee.toString(),
-          totalAmount: d.totalAmount.toString(),
-          expectedBOBH: d.deposit?.expectedBOBH ? d.deposit.expectedBOBH.toString() : '0',
-
-          rateUsed: d.rateUsed ? d.rateUsed.toString() : null,
-          rateSource: d.rateSource ?? null,
-          rateQuotedAt: d.rateQuotedAt ? d.rateQuotedAt.toISOString() : null,
-          rateExpiresAt: d.rateExpiresAt ? d.rateExpiresAt.toISOString() : null,
-
-          proofUrl: d.deposit?.proofUrl ?? null,
-          proofUploadedAt: d.deposit?.proofUploadedAt
-            ? d.deposit.proofUploadedAt.toISOString()
-            : null,
-          proofFileName: d.deposit?.proofFileName ?? null,
-          proofMimeType: d.deposit?.proofMimeType ?? null,
-
-          validatedById: d.validatedById ?? null,
-          validatedAt: d.validatedAt ? d.validatedAt.toISOString() : null,
-
-          mintTxHash: d.deposit?.mintTxHash ?? null,
-          mintedAt: d.deposit?.mintedAt ? d.deposit.mintedAt.toISOString() : null,
-
-          createdAt: d.createdAt.toISOString(),
-          updatedAt: d.updatedAt.toISOString(),
-          processedAt: d.processedAt ? d.processedAt.toISOString() : null,
-        };
-      }),
-      nextCursor,
-      hasMore,
-      limit,
+      // (Opcional) devolver reviewNote por si el frontend quiere refrescar UI:
+      reviewNote: updated.deposit?.reviewNote ?? null,
+      reviewedById: updated.deposit?.reviewedById ?? null,
+      reviewedAt: updated.deposit?.reviewedAt ? updated.deposit.reviewedAt.toISOString() : null,
     };
   }
 }

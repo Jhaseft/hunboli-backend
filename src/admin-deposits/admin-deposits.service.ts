@@ -92,6 +92,9 @@ export class AdminDepositsService {
             proofMimeType: true,
             mintTxHash: true,
             mintedAt: true,
+            reviewNote: true,
+            reviewedById: true,
+            reviewedAt: true,
           },
         },
 
@@ -151,6 +154,10 @@ export class AdminDepositsService {
 
           mintTxHash: d.deposit?.mintTxHash ?? null,
           mintedAt: d.deposit?.mintedAt ? d.deposit.mintedAt.toISOString() : null,
+
+          reviewNote: d.deposit?.reviewNote ?? null,
+          reviewedById: d.deposit?.reviewedById ?? null,
+          reviewedAt: d.deposit?.reviewedAt ? d.deposit.reviewedAt.toISOString() : null,
 
           createdAt: d.createdAt.toISOString(),
 
@@ -218,6 +225,10 @@ export class AdminDepositsService {
       proofFileName: d.deposit.proofFileName ?? null,
       proofMimeType: d.deposit.proofMimeType ?? null,
       rateExpiresAt: d.rateExpiresAt ? d.rateExpiresAt.toISOString() : null,
+      reviewNote: d.deposit.reviewNote ?? null,
+      reviewedById: d.deposit.reviewedById ?? null,
+      reviewedAt: d.deposit.reviewedAt ? d.deposit.reviewedAt.toISOString() : null,
+
       user: d.user,
       transactions: [],
     };
