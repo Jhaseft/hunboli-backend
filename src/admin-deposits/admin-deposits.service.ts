@@ -121,7 +121,8 @@ export class AdminDepositsService {
         const isRateExpired =
           d.currency === 'PEN' &&
           !!d.rateExpiresAt &&
-          now > d.rateExpiresAt.getTime() &&
+          !!d.deposit?.proofUploadedAt &&
+          d.deposit.proofUploadedAt > d.rateExpiresAt &&
           displayStatus !== 'MINTED';
 
         return {
@@ -290,24 +291,29 @@ export class AdminDepositsService {
     };
   }
 
-  async requestDepositCorrection(adminId: string, operationId: string, note: string) {
+  async requestCorrection(u: JwtUser, id: string, dto: RequestCorrectionDto) {
     this.assertAdminOrOperator(u);
 
-    const op = await this.prisma.fiatOperation.findUnique({
+    const op = await this.prisma.fiatOperation.findFirst({
       where: { id, type: FiatOperationType.DEPOSIT },
       include: { deposit: true },
     });
 
     if (!op || !op.deposit) throw new NotFoundException('Operación no encontrada');
 
-    //no tocar si ya final
+    // 1) No tocar si ya está final/minteado
     if (this.isMinted(op.status, op.deposit)) {
+      throw new BadRequestException('Este depósito ya fue minteado.');
+    }
+
+    // 2) Solo tiene sentido si ya existe proof para revisar
+    if (!op.deposit.proofUrl) {
       throw new BadRequestException('No hay comprobante para revisar.');
     }
 
-    //solo desde Proof Submitted
+    // 3) Solo desde PROOF_SUBMITTED
     if (op.status !== FiatOperationStatus.PROOF_SUBMITTED) {
-      throw new BadRequestException('Solo puedes solicitar corrección si ya hay comprobante enviado');
+      throw new BadRequestException('Solo puedes solicitar corrección desde PROOF_SUBMITTED.');
     }
 
     const updated = await this.prisma.fiatOperation.update({
@@ -325,11 +331,13 @@ export class AdminDepositsService {
       select: {
         id: true,
         status: true,
-        deposit: {select: {
-          reviewNote: true,
-          reviewedById: true,
-          reviewedAt: true,
-        }},
+        deposit: {
+          select: {
+            reviewNote: true,
+            reviewedById: true,
+            reviewedAt: true,
+          },
+        },
       },
     });
 
@@ -337,8 +345,8 @@ export class AdminDepositsService {
       depositId: updated.id,
       status: updated.status,
       reviewNote: updated.deposit?.reviewNote ?? null,
-      reviewedAt: updated.deposit?.reviewedAt ? updated.deposit.reviewedAt.toISOString() : null,
       reviewedById: updated.deposit?.reviewedById ?? null,
+      reviewedAt: updated.deposit?.reviewedAt ? updated.deposit.reviewedAt.toISOString() : null,
     };
   }
 }
