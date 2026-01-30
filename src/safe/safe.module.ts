@@ -1,9 +1,10 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { SafeService } from './safe.service';
-import { SafeController } from './safe.controller';
 
 @Module({
-  controllers: [SafeController],
+  imports: [ConfigModule],
   providers: [SafeService],
+  exports: [SafeService],
 })
 export class SafeModule {}
