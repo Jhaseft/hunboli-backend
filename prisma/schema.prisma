@@ -58,7 +58,7 @@ model FiatOperation {
   rateSource    String?
   rateQuotedAt  DateTime?
   rateExpiresAt DateTime?
-  referenceCode String              @unique
+  referenceCode String              @unique     //revisar si hay que mantener o borrar
   status        FiatOperationStatus @default(PENDING)
   validatedById String?
   validatedAt   DateTime?
@@ -86,7 +86,7 @@ model DepositDetail {
   proofFileName   String?
   proofMimeType   String?
   reviewNote      String?
-  reviewById      String?
+  reviewedById      String?
   reviewedAt      DateTime?
 
   operation       FiatOperation @relation(fields: [operationId], references: [id], onDelete: Cascade)
@@ -193,15 +193,6 @@ enum FiatOperationStatus {
 enum FiatCurrency {
   BOB
   PEN
-}
-
-enum DepositStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  MINTED
-  PROOF_SUBMITTED
-  RATE_EXPIRED
 }
 
 enum TransactionType {

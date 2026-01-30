@@ -3,6 +3,7 @@ import { FiatOperationStatus, FiatOperationType, Prisma, UserRole } from '@prism
 import { PrismaService } from '../prisma.service';
 import { AdminDecisionDto, AdminDecisionAction } from './dto/decision.dto';
 import { ListAdminDepositsQueryDto, AdminDepositStatusFilter } from './dto/list-admin-deposits.dto';
+import { RequestCorrectionDto } from './dto/request-correction.dto';
 
 type JwtUser = { userId: string; role: UserRole; email?: string };
 
@@ -236,23 +237,29 @@ export class AdminDepositsService {
       throw new BadRequestException('Este depósito ya fue minteado.');
     }
 
-    // Exigir comprobante para aprobar (si quieres permitir BOB sin proof, me dices)
+    // Solo permitir decidir cuando el depósito está listo para revisión
+    if (deposit.status !== FiatOperationStatus.PROOF_SUBMITTED) {
+      throw new BadRequestException('Solo se puede decidir cuando el depósito está en PROOF_SUBMITTED.');
+    }
+
+    // Exigir comprobante para aprobar
     if (dto.action === AdminDecisionAction.APPROVE && !deposit.deposit.proofUrl) {
       throw new BadRequestException('No se puede aprobar sin comprobante.');
     }
 
-    // Si PEN y expiró, no permitir aprobar
+    // Si PEN: solo invalidar si el proof se subió DESPUÉS del vencimiento
     if (
       dto.action === AdminDecisionAction.APPROVE &&
       deposit.currency === 'PEN' &&
       deposit.rateExpiresAt &&
-      new Date() > deposit.rateExpiresAt
+      deposit.deposit.proofUploadedAt &&
+      deposit.deposit.proofUploadedAt > deposit.rateExpiresAt
     ) {
       await this.prisma.fiatOperation.update({
         where: { id },
         data: { status: FiatOperationStatus.RATE_EXPIRED },
       });
-      throw new BadRequestException('El tipo de cambio expiró. No se puede aprobar.');
+      throw new BadRequestException('El comprobante se subió después de que expiró el tipo de cambio.');
     }
 
     const newStatus =
@@ -280,6 +287,58 @@ export class AdminDepositsService {
       status: updated.status,
       validatedById: updated.validatedById,
       validatedAt: updated.validatedAt ? updated.validatedAt.toISOString() : null,
+    };
+  }
+
+  async requestDepositCorrection(adminId: string, operationId: string, note: string) {
+    this.assertAdminOrOperator(u);
+
+    const op = await this.prisma.fiatOperation.findUnique({
+      where: { id, type: FiatOperationType.DEPOSIT },
+      include: { deposit: true },
+    });
+
+    if (!op || !op.deposit) throw new NotFoundException('Operación no encontrada');
+
+    //no tocar si ya final
+    if (this.isMinted(op.status, op.deposit)) {
+      throw new BadRequestException('No hay comprobante para revisar.');
+    }
+
+    //solo desde Proof Submitted
+    if (op.status !== FiatOperationStatus.PROOF_SUBMITTED) {
+      throw new BadRequestException('Solo puedes solicitar corrección si ya hay comprobante enviado');
+    }
+
+    const updated = await this.prisma.fiatOperation.update({
+      where: { id },
+      data: {
+        status: FiatOperationStatus.NEED_CORRECTION,
+        deposit: {
+          update: {
+            reviewNote: dto.note,
+            reviewedById: u.userId,
+            reviewedAt: new Date(),
+          },
+        },
+      },
+      select: {
+        id: true,
+        status: true,
+        deposit: {select: {
+          reviewNote: true,
+          reviewedById: true,
+          reviewedAt: true,
+        }},
+      },
+    });
+
+    return {
+      depositId: updated.id,
+      status: updated.status,
+      reviewNote: updated.deposit?.reviewNote ?? null,
+      reviewedAt: updated.deposit?.reviewedAt ? updated.deposit.reviewedAt.toISOString() : null,
+      reviewedById: updated.deposit?.reviewedById ?? null,
     };
   }
 }

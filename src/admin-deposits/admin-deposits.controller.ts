@@ -3,6 +3,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { AdminDepositsService } from './admin-deposits.service';
 import { ListAdminDepositsQueryDto } from './dto/list-admin-deposits.dto';
 import { AdminDecisionDto } from './dto/decision.dto';
+import { RequestCorrectionDto } from './dto/request-correction.dto';
 
 @Controller('admin/deposits')
 @UseGuards(AuthGuard('jwt'))
@@ -22,5 +23,10 @@ export class AdminDepositsController {
   @Patch(':id/decision')
   decide(@Req() req: any, @Param('id') id: string, @Body() dto: AdminDecisionDto) {
     return this.adminDepositsService.decide(req.user, id, dto);
+  }
+
+  @Patch(':id/request-correction')
+  requestCorrection(@Req() req: any, @Param('id') id: string, @Body() dto: RequestCorrectionDto) {
+    return this.adminDepositsService.requestCorrection(req.user, id, dto);
   }
 }
