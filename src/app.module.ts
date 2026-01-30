@@ -16,6 +16,7 @@ import { AdminDepositsModule } from './admin-deposits/admin-deposits.module';
 import { RetiroModule } from './retiro/retiro.module';
 import { VerificationModule } from './verification/verification.module';
 import { RateModule } from './rate/rate.module';
+import { AdminRetirosModule } from './admin-retiros/admin-retiros.module';
 
 @Module({
   imports: [
@@ -57,6 +58,7 @@ import { RateModule } from './rate/rate.module';
     RetiroModule,
     VerificationModule,
     RateModule,
+    AdminRetirosModule,
   ],
   controllers: [],
   providers: [],

@@ -1,6 +1,5 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, UseInterceptors, UploadedFile, BadRequestException, ParseUUIDPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, UseInterceptors, UploadedFile, BadRequestException, ParseUUIDPipe, ParseEnumPipe } from '@nestjs/common';
 import { VerificationService } from './verification.service';
-import { CreateVerificationDto } from './dto/create-verification.dto';
 import { UpdateVerificationDto } from './dto/update-verification.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/auth/guards/roles.guard';
@@ -62,7 +61,6 @@ export class VerificationController {
   @Roles(UserRole.ADMIN)
   async rejectRequest(@Body() body: AcceptRequestDto) {
     return this.verificationService.rejectPendingRequest(body.requestId);
-
   }
 
   @Get("status")
@@ -72,11 +70,17 @@ export class VerificationController {
     return this.verificationService.findStatusByUserId(user.userId);
   }
 
-  @Get()
+  @Get("all")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   findAll() {
     return this.verificationService.findAll();
+  }
+  @Get('requests/:param')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  findAllBystatus(@Param('param', new ParseEnumPipe(VerificationStatus)) param: VerificationStatus) {
+    return this.verificationService.findRequestsByParam(param);
   }
 
   @Get(':id')

@@ -3,7 +3,9 @@
     "allow": [
       "Bash(taskkill:*)",
       "Bash(npx eslint:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "WebFetch(domain:docs.safe.global)",
+      "WebFetch(domain:www.npmjs.com)"
     ]
   }
 }

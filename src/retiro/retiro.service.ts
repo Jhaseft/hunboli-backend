@@ -7,7 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma.service';
 import { CreateRetiroDto } from './dto/create-retiro.dto';
 
-@Injectable()
+@Injectable() 
 export class RetiroService {
   constructor(
     private prisma: PrismaService,

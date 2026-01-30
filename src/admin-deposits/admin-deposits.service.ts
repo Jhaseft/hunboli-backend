@@ -1,6 +1,7 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { FiatOperationStatus, FiatOperationType, Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
+import { SafeService } from '../safe/safe.service';
 import { AdminDecisionDto, AdminDecisionAction } from './dto/decision.dto';
 import { ListAdminDepositsQueryDto, AdminDepositStatusFilter } from './dto/list-admin-deposits.dto';
 import { RequestCorrectionDto } from './dto/request-correction.dto';
@@ -9,7 +10,12 @@ type JwtUser = { userId: string; role: UserRole; email?: string };
 
 @Injectable()
 export class AdminDepositsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(AdminDepositsService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly safeService: SafeService,
+  ) {}
 
   private assertAdminOrOperator(u: JwtUser) {
     const allowed: UserRole[] = [UserRole.ADMIN, UserRole.OPERATOR_BO, UserRole.OPERATOR_PE];
@@ -239,10 +245,12 @@ export class AdminDepositsService {
 
     const deposit = await this.prisma.fiatOperation.findFirst({
       where: { id, type: FiatOperationType.DEPOSIT },
-      include: { deposit: true },
+      include: {
+        deposit: true,
+        user: { select: { walletAddress: true } },
+      },
     });
     if (!deposit || !deposit.deposit) throw new NotFoundException('Deposito no encontrado');
-    if (!deposit) throw new NotFoundException('Depósito no encontrado');
 
     // No tocar si ya final
     if (this.isMinted(deposit.status, deposit.deposit)) {
@@ -293,6 +301,46 @@ export class AdminDepositsService {
         validatedAt: true,
       },
     });
+
+    // Si se aprueba, proponer mint en la Safe Multisig
+    if (dto.action === AdminDecisionAction.APPROVE) {
+      const walletAddress = deposit.user?.walletAddress;
+      if (!walletAddress) {
+        // Revertir aprobacion si el usuario no tiene wallet
+        await this.prisma.fiatOperation.update({
+          where: { id },
+          data: { status: FiatOperationStatus.PROOF_SUBMITTED, validatedById: null, validatedAt: null },
+        });
+        throw new BadRequestException('El usuario no tiene una wallet registrada. No se puede proponer el mint.');
+      }
+
+      try {
+        const safeTxHash = await this.safeService.proposeMintTransaction(
+          walletAddress,
+          deposit.deposit.expectedBOBH.toString(),
+        );
+
+        // Guardar el safeTxHash en el detalle del deposito
+        await this.prisma.depositDetail.update({
+          where: { operationId: id },
+          data: { mintTxHash: safeTxHash },
+        });
+
+        this.logger.log(`Mint proposed for deposit ${id}. safeTxHash=${safeTxHash}`);
+      } catch (error) {
+        this.logger.error(`Failed to propose mint for deposit ${id}: ${error.message}`, error.stack);
+
+        // Revertir aprobacion si falla la propuesta
+        await this.prisma.fiatOperation.update({
+          where: { id },
+          data: { status: FiatOperationStatus.PROOF_SUBMITTED, validatedById: null, validatedAt: null },
+        });
+
+        throw new BadRequestException(
+          `Depósito no pudo ser aprobado: error al proponer la transacción en la multisig. ${error.message}`,
+        );
+      }
+    }
 
     return {
       depositId: updated.id,
