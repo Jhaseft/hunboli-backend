@@ -1,72 +1,94 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma.service';
 import { CreateRetiroDto } from './dto/create-retiro.dto';
 
 @Injectable()
 export class RetiroService {
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private prisma: PrismaService,
+    private config: ConfigService,
+  ) { }
+
+  private getComisionMinima(): number {
+    return Number(this.config.get('COMISION_MINIMA'));
+  }
+
+  private getPorcentajeComision(): number {
+    return Number(this.config.get('PORCENTAJE'));
+  }
+
+  private getRateBobToPen(): number {
+    return Number(this.config.get('BOB_TO_PEN_RATE'));
+  }
+
+  private getRateBobToBobh(): number {
+    return Number(this.config.get('BOB_TO_BOBH'));
+  }
+
+  private getrate_source(): string {
+    return String(this.config.get('RATE_SOURCE'));
+  }
+
+  private getmount_minimo(): number {
+    return Number(this.config.get('Monto_Minimo'));
+  }
 
   async create(dto: CreateRetiroDto, userId: string) {
-    const referenceCode = `RET-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
-    // Buscar cuenta bancaria con JOIN al banco
+    const referenceCode = `RET-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const monto_minimo=this.getmount_minimo();
+    console.log('monto minimo',monto_minimo)
+    const amount = Number(dto.amount);
+    const ratesource =this.getrate_source();
+
+    //mosnto minimo = 100 y amount = 10
+    //100 < 10 ? -> no
+    //monto minimo =10000 y amount =9000
+    //10000 < 9000 ? -> no
+    if ( monto_minimo > amount ) {
+      throw new BadRequestException(`El monto es menor a ${monto_minimo} > ${amount} BOBHs`);
+    }
+
     const bankAccount = await this.prisma.bankAccount.findUnique({
       where: { id: dto.bankAccountId },
-      include: {
-        bank: true,
-      },
+      include: { bank: true },
     });
 
     if (!bankAccount) {
       throw new NotFoundException('La cuenta bancaria no existe');
     }
 
-    const converte_amount = parseInt(dto.amount);
+    this.validateCurrencyByCountry(dto.currency, bankAccount.bank.country);
 
-    if (converte_amount < 10000) {
-      throw new BadRequestException('El monto es menor a 10000 BOBHs');
-    }
+    const porcentaje = this.getPorcentajeComision();
+    const comisionMinima = this.getComisionMinima();
 
-    console.log(bankAccount);
+    const comisionCalculada = Math.max(amount * porcentaje, comisionMinima);
+    const totalAmount = amount + comisionCalculada;
 
-    const { bank } = bankAccount;
+    const { rateUsed, fiatSent } = this.calculateConversion(
+      dto.currency,
+      amount,
+    ); 
 
-    // Validación de moneda BOB
-    if (dto.currency === 'BOB') {
-      if (bank.country !== 'Bolivia') {
-        throw new BadRequestException(
-          `La cuenta bancaria es de tipo ${bank.country} y no admite retiros en ${dto.currency}`,
-        );
-      }
-    }
-
-    if (dto.currency === 'PEN') {
-      if (bank.country !== 'PERU') {
-        throw new BadRequestException(
-          `La cuenta bancaria es de tipo ${bank.country} y no admite retiros en ${dto.currency}`,
-        );
-      }
-    }
-
-    const totalAmount = dto.amount + dto.serviceFee;
-    
-
-    const FiatSent = parseInt(totalAmount) - parseInt(dto.serviceFee) ;
-    
     try {
       const result = await this.prisma.$transaction(async (tx) => {
-        //  Crear Fiat Operation
         const fiatOperation = await tx.fiatOperation.create({
           data: {
             type: 'WITHDRAW',
             userId,
             currency: dto.currency,
-            amount: dto.amount,
-            feeRate: dto.feeRate,
-            serviceFee: dto.serviceFee,
-            totalAmount: totalAmount,
-            rateUsed: dto.rateUsed,
-            rateSource: dto.rateSource,
+            amount,
+            feeRate: porcentaje,
+            serviceFee: comisionCalculada,
+            totalAmount,
+            rateUsed,
+            rateSource: ratesource,
             rateQuotedAt: dto.rateQuotedAt,
             rateExpiresAt: dto.rateExpiresAt,
             referenceCode,
@@ -74,33 +96,62 @@ export class RetiroService {
           },
         });
 
-        // Crear Withdrawal Detail
         const withdrawalDetail = await tx.withdrawalDetail.create({
           data: {
             operationId: fiatOperation.id,
             burnedBOBH: totalAmount,
-            fiatSent: FiatSent,
+            fiatSent,
             bankAccountId: dto.bankAccountId,
           },
         });
 
-        return {
-          fiatOperation,
-          withdrawalDetail,
-        };
+        return { fiatOperation, withdrawalDetail };
       });
 
       return {
         success: true,
-        fiatOperation: result.fiatOperation,
+        fiatOperation: {
+          ...result.fiatOperation,
+          id: result.fiatOperation.id.toString(),
+        },
         withdrawalDetail: {
           ...result.withdrawalDetail,
+          operationId: result.withdrawalDetail.operationId.toString(),
           bankAccountId: result.withdrawalDetail.bankAccountId.toString(),
         },
       };
     } catch (error) {
-      console.error('Error creando retiro completo:', error);
+      console.error('Error creando retiro:', error);
       throw error;
     }
+  }
+
+  private validateCurrencyByCountry(currency: string, country: string) {
+    const rules = {
+      BOB: 'Bolivia',
+      PEN: 'PERU',
+    };
+
+    if (rules[currency] && rules[currency] !== country) {
+      throw new BadRequestException(
+        `La cuenta bancaria es de ${country} y no admite retiros en ${currency}`,
+      );
+    }
+  }
+
+  private calculateConversion(currency: string, amount: number) {
+    if (currency === 'PEN') {
+      const rate = this.getRateBobToPen();
+      return {
+        rateUsed: rate,
+        fiatSent: amount * rate,
+      };
+    }
+
+    const rate = this.getRateBobToBobh();
+    return {
+      rateUsed: rate,
+      fiatSent: amount * rate,
+    };
   }
 }

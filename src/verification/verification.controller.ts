@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, UseInterceptors, UploadedFile, BadRequestException, ParseUUIDPipe } from '@nestjs/common';
 import { VerificationService } from './verification.service';
 import { CreateVerificationDto } from './dto/create-verification.dto';
 import { UpdateVerificationDto } from './dto/update-verification.dto';
@@ -9,6 +9,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { KycStatus, UserRole } from '@prisma/client';
+import { AcceptRequestDto } from './dto/accept-request.dto';
 interface JwtUser {
   userId: string;
   email: string;
@@ -52,33 +53,50 @@ export class VerificationController {
   @Patch("accept")
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  async acceptRequest(@Body() body: { requestId: string }) {
+  async acceptRequest(@Body() body: AcceptRequestDto) {
+    return this.verificationService.acceptPendingRequest(body.requestId)
+  }
 
+  @Patch("reject")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async rejectRequest(@Body() body: AcceptRequestDto) {
+    return this.verificationService.rejectPendingRequest(body.requestId);
 
   }
 
-  @Post()
-  create(@Body() createVerificationDto: CreateVerificationDto) {
-    return this.verificationService.create(createVerificationDto);
+  @Get("status")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.USER)
+  async findStatus(@CurrentUser() user: JwtUser) {
+    return this.verificationService.findStatusByUserId(user.userId);
   }
 
   @Get()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
   findAll() {
     return this.verificationService.findAll();
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.verificationService.findOne(+id);
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  findOne(@Param('id', ParseUUIDPipe) id: string) {
+    return this.verificationService.findOne(id);
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateVerificationDto: UpdateVerificationDto) {
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  update(@Param('id', ParseUUIDPipe) id: string, @Body() updateVerificationDto: UpdateVerificationDto) {
     return this.verificationService.update(+id, updateVerificationDto);
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.verificationService.remove(+id);
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  remove(@Param('id', ParseUUIDPipe) id: string) {
+    return this.verificationService.remove(id);
   }
 }

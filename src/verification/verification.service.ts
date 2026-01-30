@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateVerificationDto } from './dto/create-verification.dto';
 import { UpdateVerificationDto } from './dto/update-verification.dto';
 import { PrismaService } from 'src/prisma.service';
@@ -35,26 +35,84 @@ export class VerificationService {
     });
   }
 
+  async acceptPendingRequest(requestId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const request = await tx.verification_requests.findUnique({ where: { id: requestId } });
 
+      if (!request) throw new NotFoundException("Solicitud no encontrada");
+      if (request.status !== 'PENDING') {
+        throw new BadRequestException("La solicitud ya fue procesada");
+      }
 
+      await tx.user.update({
+        where: { id: request.userId },
+        data: { isVerified: true }
+      });
 
-  create(createVerificationDto: CreateVerificationDto) {
-    return 'This action adds a new verification';
+      return tx.verification_requests.update({
+        where: { id: requestId },
+        data: { status: 'APPROVED' }
+      });
+    });
   }
+
+  async rejectPendingRequest(requestId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const request = await tx.verification_requests.findUnique({ where: { id: requestId } });
+
+      if (!request) throw new NotFoundException("Solicitud no encontrada");
+      if (request.status !== 'PENDING') {
+        throw new BadRequestException("La solicitud ya fue procesada");
+      }
+
+      await tx.user.update({
+        where: { id: request.userId },
+        data: { isVerified: false }
+      });
+
+      return tx.verification_requests.update({
+        where: { id: requestId },
+        data: { status: 'REJECTED' }
+      });
+    });
+  }
+
 
   findAll() {
-    return `This action returns all verification`;
+    return this.prisma.verification_requests.findMany({
+      include: {
+        users: {
+          select: { id: true, firstName: true, lastName: true, email: true }
+        }
+      }
+    });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} verification`;
+  findOne(requestId: string) {
+    return this.prisma.verification_requests.findUnique({
+      where: { id: requestId },
+      include: {
+        users: {
+          select: { id: true, firstName: true, lastName: true, email: true }
+        }
+      }
+    });
+  }
+
+  async findStatusByUserId(id: string) {
+    const data = await this.prisma.verification_requests.findFirst({
+      where: { userId: id }
+    })
+    if (!data) throw new NotFoundException("Solicitud de verificacion no encontrada");
+    return data
+
   }
 
   update(id: number, updateVerificationDto: UpdateVerificationDto) {
     return `This action updates a #${id} verification`;
   }
 
-  remove(id: number) {
-    return `This action removes a #${id} verification`;
+  remove(requestId: string) {
+    return this.prisma.verification_requests.delete({ where: { id: requestId } });
   }
 }
