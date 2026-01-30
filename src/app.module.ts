@@ -16,11 +16,7 @@ import { AdminDepositsModule } from './admin-deposits/admin-deposits.module';
 import { RetiroModule } from './retiro/retiro.module';
 import { VerificationModule } from './verification/verification.module';
 import { RateModule } from './rate/rate.module';
-<<<<<<< HEAD
 import { AdminRetirosModule } from './admin-retiros/admin-retiros.module';
-=======
-import { SafeModule } from './safe/safe.module';
->>>>>>> cea5d1ff54c23603a6476488dc183312b5d0af71
 
 @Module({
   imports: [
@@ -62,11 +58,7 @@ import { SafeModule } from './safe/safe.module';
     RetiroModule,
     VerificationModule,
     RateModule,
-<<<<<<< HEAD
     AdminRetirosModule,
-=======
-    SafeModule,
->>>>>>> cea5d1ff54c23603a6476488dc183312b5d0af71
   ],
   controllers: [],
   providers: [],

@@ -9,11 +9,6 @@ import { memoryStorage } from 'multer';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { KycStatus, UserRole } from '@prisma/client';
 import { AcceptRequestDto } from './dto/accept-request.dto';
-<<<<<<< HEAD
-
-=======
-import { VerificationStatus } from '@prisma/client';
->>>>>>> cea5d1ff54c23603a6476488dc183312b5d0af71
 interface JwtUser {
   userId: string;
   email: string;
