@@ -83,6 +83,13 @@ export class VerificationController {
     return this.verificationService.findRequestsByParam(param);
   }
 
+  @Get("pending-requests/quantity")
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  getQuantity() {
+    return this.verificationService.getQuantity();
+  }
+
   @Get(':id')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)

@@ -87,6 +87,10 @@ export class VerificationService {
       });
     });
   }
+  async getQuantity() {
+    const data = await this.findPendingRequests();
+    return { quantity: data.length };
+  }
 
 
   findAll() {
