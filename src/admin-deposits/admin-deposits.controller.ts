@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AdminDepositsService } from './admin-deposits.service';
 import { ListAdminDepositsQueryDto } from './dto/list-admin-deposits.dto';
@@ -28,5 +28,10 @@ export class AdminDepositsController {
   @Patch(':id/request-correction')
   requestCorrection(@Req() req: any, @Param('id') id: string, @Body() dto: RequestCorrectionDto) {
     return this.adminDepositsService.requestCorrection(req.user, id, dto);
+  }
+
+  @Post(':id/propose-mint')
+  proposeMint(@Req() req: any, @Param('id') id: string) {
+    return this.adminDepositsService.proposeMint(req.user, id);
   }
 }

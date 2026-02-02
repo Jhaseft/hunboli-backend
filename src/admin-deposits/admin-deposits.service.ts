@@ -42,6 +42,29 @@ export class AdminDepositsService {
     return this.isMinted(status, deposit) ? 'MINTED' : status;
   }
 
+  private toMaxDecimals(value: string, maxDecimals: number): string {
+    if (maxDecimals <= 0) {
+      return value.split('.')[0];
+    }
+
+    const parts = value.split('.');
+    if (parts.length === 1) {
+      return value;
+    }
+
+    const [intPart, decPart] = parts;
+    if (!decPart) {
+      return intPart;
+    }
+
+    const trimmed = decPart.slice(0, maxDecimals);
+    if (trimmed.length === 0) {
+      return intPart;
+    }
+
+    return `${intPart}.${trimmed}`;
+  }
+
   async list(u: JwtUser, q: ListAdminDepositsQueryDto) {
     this.assertAdminOrOperator(u);
 
@@ -96,6 +119,8 @@ export class AdminDepositsService {
             proofUploadedAt: true,
             proofFileName: true,
             proofMimeType: true,
+            safeTxHash: true,
+            safeProposedAt: true,
             mintTxHash: true,
             mintedAt: true,
             reviewNote: true,
@@ -154,6 +179,9 @@ export class AdminDepositsService {
           proofUploadedAt: d.deposit?.proofUploadedAt ? d.deposit.proofUploadedAt.toISOString() : null,
           proofFileName: d.deposit?.proofFileName ?? null,
           proofMimeType: d.deposit?.proofMimeType ?? null,
+
+          safeTxHash: d.deposit?.safeTxHash ?? null,
+          safeProposedAt: d.deposit?.safeProposedAt ? d.deposit.safeProposedAt.toISOString() : null,
 
           validatedById: d.validatedById ?? null,
           validatedAt: d.validatedAt ? d.validatedAt.toISOString() : null,
@@ -237,6 +265,71 @@ export class AdminDepositsService {
 
       user: d.user,
       transactions: [],
+    };
+  }
+
+  async proposeMint(u: JwtUser, id: string) {
+    this.assertAdminOrOperator(u);
+
+    const op = await this.prisma.fiatOperation.findFirst({
+      where: { id, type: FiatOperationType.DEPOSIT },
+      include: {
+        user: { select: { walletAddress: true } },
+        deposit: true,
+      },
+    });
+
+    if (!op || !op.deposit) throw new NotFoundException('Deposito no encontrado');
+
+    // 1) No tocar si ya minteado/final
+    if (this.isMinted(op.status, op.deposit)) {
+      throw new BadRequestException('Este depósito ya fue minteado/procesado.');
+    }
+
+    // 2) Debe estar aprobado (recomendación)
+    if (op.status !== FiatOperationStatus.APPROVED) {
+      throw new BadRequestException('Solo se puede proponer mint cuando el depósito está APPROVED.');
+    }
+
+    // 3) Debe existir comprobante (ustedes decidieron exigirlo siempre)
+    if (!op.deposit.proofUrl) {
+      throw new BadRequestException('No se puede proponer mint sin comprobante.');
+    }
+
+    // 4) Wallet del usuario obligatoria
+    const to = op.user.walletAddress;
+    if (!to) throw new BadRequestException('El usuario no tiene wallet registrada.');
+
+    // 5) Evitar duplicados
+    if (op.deposit.safeTxHash) {
+      throw new BadRequestException('Este depósito ya tiene un mint propuesto en Safe.');
+    }
+
+    // 6) Monto: expectedBOBH -> string con max 6 decimales
+    const expected = op.deposit.expectedBOBH.toString();
+    const amount6 = this.toMaxDecimals(expected, 6);
+
+    // 7) Llamada a Safe
+    const safeTxHash = await this.safeService.proposeMintTransaction(to, amount6);
+
+    // 8) Guardar safeTxHash en deposit_details
+    const updated = await this.prisma.fiatOperation.update({
+      where: { id: op.id },
+      data: {
+        deposit: {
+          update: {
+            safeTxHash,
+            safeProposedAt: new Date(),
+          },
+        },
+      },
+      include: { deposit: true },
+    });
+
+    return {
+      depositId: updated.id,
+      safeTxHash,
+      safeProposedAt: updated.deposit?.safeProposedAt?.toISOString() ?? null,
     };
   }
 
