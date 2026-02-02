@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { TestModule } from './test/test.module';
 import { PrismaModule } from './prisma.module';
 import { UsersModule } from './users/users.module';
@@ -17,6 +18,7 @@ import { RetiroModule } from './retiro/retiro.module';
 import { VerificationModule } from './verification/verification.module';
 import { RateModule } from './rate/rate.module';
 import { AdminRetirosModule } from './admin-retiros/admin-retiros.module';
+import { JobsModule } from './jobs/jobs.module';
 
 @Module({
   imports: [
@@ -24,6 +26,7 @@ import { AdminRetirosModule } from './admin-retiros/admin-retiros.module';
       isGlobal: true, // Hace que ConfigModule esté disponible en toda la app(osea traer varibales de entorno)
       envFilePath: '.env',
     }),
+    ScheduleModule.forRoot(),
     PrismaModule,
     TestModule,
     UsersModule,
@@ -59,6 +62,7 @@ import { AdminRetirosModule } from './admin-retiros/admin-retiros.module';
     VerificationModule,
     RateModule,
     AdminRetirosModule,
+    JobsModule,
   ],
   controllers: [],
   providers: [],

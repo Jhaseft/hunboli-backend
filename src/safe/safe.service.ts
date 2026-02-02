@@ -50,6 +50,26 @@ export class SafeService implements OnModuleInit {
     this.logger.log(`Safe service initialized. Proposer: ${wallet.address}, Safe: ${this.safeAddress}`);
   }
 
+  private buildApiKit() {
+    return new SafeApiKit({
+      chainId: BigInt(this.chainId),
+      txServiceUrl: this.txServiceUrl,
+      apiKey: this.safeApiKey,
+    });
+  }
+
+  async getSafeTxExecution(
+    safeTxHash: string,
+  ): Promise<{ executed: boolean; txHash: string | null; executionDate: string | null }> {
+    const apiKit = this.buildApiKit();
+    const tx = await apiKit.getTransaction(safeTxHash);
+    return {
+      executed: !!tx.isExecuted && !!tx.transactionHash,
+      txHash: tx.transactionHash ?? null,
+      executionDate: tx.executionDate ?? null,
+    };
+  }
+
   /**
    * Propone una transaccion mint() en la Safe Multisig.
    * @param to Direccion de la wallet destino (usuario)
@@ -90,11 +110,7 @@ export class SafeService implements OnModuleInit {
     const signature = await protocolKit.signHash(safeTxHash);
 
     // 5. Proponer via API Kit
-    const apiKit = new SafeApiKit({ 
-      chainId: BigInt(this.chainId),
-      txServiceUrl: this.txServiceUrl,
-      apiKey: this.safeApiKey,
-    });
+    const apiKit = this.buildApiKit();
 
     const proposerWallet = new ethers.Wallet(this.proposerPrivateKey);
 
