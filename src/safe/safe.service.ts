@@ -39,13 +39,15 @@ export class SafeService implements OnModuleInit {
 
     this.mintInterface = new ethers.utils.Interface([
       'function mint(address to, uint256 amount)',
+      'function finalizeRedemption(address user, uint256 amount)',
+      'function rejectRedemption(address user, uint256 amount)',
     ]);
 
     this.safeApiKey = this.config.get<string>('SAFE_API_KEY') ?? '';
-      if (!this.safeApiKey) {
-        throw new Error('SAFE_API_KEY no está configurado');
-      }
-      
+    if (!this.safeApiKey) {
+      throw new Error('SAFE_API_KEY no está configurado');
+    }
+
     const wallet = new ethers.Wallet(this.proposerPrivateKey);
     this.logger.log(`Safe service initialized. Proposer: ${wallet.address}, Safe: ${this.safeAddress}`);
   }
@@ -77,27 +79,60 @@ export class SafeService implements OnModuleInit {
    * @returns safeTxHash de la propuesta creada
    */
   async proposeMintTransaction(to: string, amount: string): Promise<string> {
-    // 1. Encodear la llamada mint(to, amountInSmallestUnit)
-    //    El contrato usa 6 decimales
     const amountParsed = ethers.utils.parseUnits(amount, 6);
-    const mintData = this.mintInterface.encodeFunctionData('mint', [to, amountParsed]);
+    const data = this.mintInterface.encodeFunctionData('mint', [to, amountParsed]);
 
     this.logger.log(
-      `Proposing mint: to=${to}, amount=${amount} BOBH (${amountParsed.toString()} raw), contract=${this.contractAddress}`,
+      `Proposing mint: to=${to}, amount=${amount} BOBH (${amountParsed.toString()} raw)`,
     );
 
-    // 2. Inicializar Protocol Kit conectado a la Safe
+    return this.proposeContractTransaction(data);
+  }
+
+  /**
+   * Propone finalizeRedemption(user, amount) en la Safe Multisig.
+   * Esto quema los tokens en custodia y completa el retiro.
+   */
+  async proposeFinalizeRedemptionTransaction(user: string, amount: string): Promise<string> {
+    const amountParsed = ethers.utils.parseUnits(amount, 6);
+    const data = this.mintInterface.encodeFunctionData('finalizeRedemption', [user, amountParsed]);
+
+    this.logger.log(
+      `Proposing finalizeRedemption: user=${user}, amount=${amount} BOBH (${amountParsed.toString()} raw)`,
+    );
+
+    return this.proposeContractTransaction(data);
+  }
+
+  /**
+   * Propone rejectRedemption(user, amount) en la Safe Multisig.
+   * Esto devuelve los tokens al usuario y cancela el retiro.
+   */
+  async proposeRejectRedemptionTransaction(user: string, amount: string): Promise<string> {
+    const amountParsed = ethers.utils.parseUnits(amount, 6);
+    const data = this.mintInterface.encodeFunctionData('rejectRedemption', [user, amountParsed]);
+
+    this.logger.log(
+      `Proposing rejectRedemption: user=${user}, amount=${amount} BOBH (${amountParsed.toString()} raw)`,
+    );
+
+    return this.proposeContractTransaction(data);
+  }
+
+  /**
+   * Logica comun: crea, firma y propone una transaccion Safe con calldata al contrato HUNBOLI.
+   */
+  private async proposeContractTransaction(data: string): Promise<string> {
     const protocolKit = await Safe.init({
       provider: this.rpcUrl,
       signer: this.proposerPrivateKey,
       safeAddress: this.safeAddress,
     });
 
-    // 3. Crear la transaccion Safe
     const txData: MetaTransactionData = {
       to: this.contractAddress,
       value: '0',
-      data: mintData,
+      data,
       operation: OperationType.Call,
     };
 
@@ -105,13 +140,10 @@ export class SafeService implements OnModuleInit {
       transactions: [txData],
     });
 
-    // 4. Obtener hash y firmar
     const safeTxHash = await protocolKit.getTransactionHash(safeTransaction);
     const signature = await protocolKit.signHash(safeTxHash);
 
-    // 5. Proponer via API Kit
     const apiKit = this.buildApiKit();
-
     const proposerWallet = new ethers.Wallet(this.proposerPrivateKey);
 
     await apiKit.proposeTransaction({
@@ -124,7 +156,6 @@ export class SafeService implements OnModuleInit {
     });
 
     this.logger.log(`Transaction proposed successfully. safeTxHash=${safeTxHash}`);
-
     return safeTxHash;
   }
 }

@@ -5,7 +5,8 @@
       "Bash(npx eslint:*)",
       "Bash(npx tsc:*)",
       "WebFetch(domain:docs.safe.global)",
-      "WebFetch(domain:www.npmjs.com)"
+      "WebFetch(domain:www.npmjs.com)",
+      "Bash(npx nest build:*)"
     ]
   }
 }
