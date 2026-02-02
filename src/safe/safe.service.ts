@@ -14,10 +14,16 @@ export class SafeService implements OnModuleInit {
   private chainId: bigint;
   private contractAddress: string;
   private safeAddress: string;
-
+  private txServiceUrl: string;
+  private safeApiKey: string;
   private mintInterface: ethers.utils.Interface;
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(private readonly config: ConfigService) {
+    this.safeApiKey = this.config.get<string>('SAFE_API_KEY') ?? '';
+    if (!this.safeApiKey) {
+      throw new Error('SAFE_API_KEY no está configurado');
+    }
+  }
 
   onModuleInit() {
     this.proposerPrivateKey = this.config.getOrThrow<string>('PROPOSER_PRIVATE_KEY');
@@ -25,11 +31,21 @@ export class SafeService implements OnModuleInit {
     this.chainId = BigInt(this.config.getOrThrow<string>('CHAIN_ID'));
     this.contractAddress = this.config.getOrThrow<string>('CONTRACT_ADDRESS');
     this.safeAddress = this.config.getOrThrow<string>('SAFE_ADDRESS');
+    this.txServiceUrl = this.config.get<string>('SAFE_TX_SERVICE_URL') ?? '';
+    if (!this.txServiceUrl) {
+      throw new Error('SAFE_TX_SERVICE_URL no está configurado');
+    }
+    this.logger.log(`Safe txServiceUrl: ${this.txServiceUrl}`);
 
     this.mintInterface = new ethers.utils.Interface([
       'function mint(address to, uint256 amount)',
     ]);
 
+    this.safeApiKey = this.config.get<string>('SAFE_API_KEY') ?? '';
+      if (!this.safeApiKey) {
+        throw new Error('SAFE_API_KEY no está configurado');
+      }
+      
     const wallet = new ethers.Wallet(this.proposerPrivateKey);
     this.logger.log(`Safe service initialized. Proposer: ${wallet.address}, Safe: ${this.safeAddress}`);
   }
@@ -74,7 +90,11 @@ export class SafeService implements OnModuleInit {
     const signature = await protocolKit.signHash(safeTxHash);
 
     // 5. Proponer via API Kit
-    const apiKit = new SafeApiKit({ chainId: this.chainId });
+    const apiKit = new SafeApiKit({ 
+      chainId: BigInt(this.chainId),
+      txServiceUrl: this.txServiceUrl,
+      apiKey: this.safeApiKey,
+    });
 
     const proposerWallet = new ethers.Wallet(this.proposerPrivateKey);
 

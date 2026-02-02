@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma.service';
 import { SafeService } from '../safe/safe.service';
 import { AdminDecisionDto, AdminDecisionAction } from './dto/decision.dto';
 import { ListAdminDepositsQueryDto, AdminDepositStatusFilter } from './dto/list-admin-deposits.dto';
+import { ListAdminMintsQueryDto } from './dto/list-admin-mints.dto';
 import { RequestCorrectionDto } from './dto/request-correction.dto';
 
 type JwtUser = { userId: string; role: UserRole; email?: string };
@@ -202,6 +203,76 @@ export class AdminDepositsService {
       hasMore,
       limit,
       filter: status,
+    };
+  }
+
+  async listMints(u: JwtUser, q: ListAdminMintsQueryDto) {
+    this.assertAdminOrOperator(u);
+
+    const limit = Math.min(Math.max(q.limit ?? 10, 1), 50);
+    const cursor = q.cursor?.trim() || undefined;
+
+    const where: Prisma.FiatOperationWhereInput = {
+      type: FiatOperationType.DEPOSIT,
+      OR: [
+        { status: FiatOperationStatus.APPROVED },
+        { deposit: { safeTxHash: { not: null } } },
+      ],
+    };
+
+    const rows = await this.prisma.fiatOperation.findMany({
+      where,
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      select: {
+        id: true,
+        referenceCode: true,
+        currency: true,
+        status: true,
+        createdAt: true,
+        deposit: {
+          select: {
+            expectedBOBH: true,
+            safeTxHash: true,
+            safeProposedAt: true,
+            mintTxHash: true,
+            mintedAt: true,
+          },
+        },
+        user: {
+          select: {
+            email: true,
+            walletAddress: true,
+          },
+        },
+      },
+    });
+
+    const hasMore = rows.length > limit;
+    const items = hasMore ? rows.slice(0, limit) : rows;
+    const nextCursor = hasMore ? (items[items.length - 1]?.id ?? null) : null;
+
+    return {
+      items: items.map((d) => {
+        const displayStatus = this.displayStatus(d.status, d.deposit);
+        return {
+          id: d.id,
+          referenceCode: d.referenceCode,
+          currency: d.currency,
+          status: displayStatus,
+          expectedBOBH: d.deposit?.expectedBOBH ? d.deposit.expectedBOBH.toString() : '0',
+          safeTxHash: d.deposit?.safeTxHash ?? null,
+          safeProposedAt: d.deposit?.safeProposedAt ? d.deposit.safeProposedAt.toISOString() : null,
+          mintTxHash: d.deposit?.mintTxHash ?? null,
+          mintedAt: d.deposit?.mintedAt ? d.deposit.mintedAt.toISOString() : null,
+          createdAt: d.createdAt.toISOString(),
+          user: d.user,
+        };
+      }),
+      nextCursor,
+      hasMore,
+      limit,
     };
   }
 
@@ -406,46 +477,6 @@ export class AdminDepositsService {
         validatedAt: true,
       },
     });
-
-    // Si se aprueba, proponer mint en la Safe Multisig
-    if (dto.action === AdminDecisionAction.APPROVE) {
-      const walletAddress = deposit.user?.walletAddress;
-      if (!walletAddress) {
-        // Revertir aprobacion si el usuario no tiene wallet
-        await this.prisma.fiatOperation.update({
-          where: { id },
-          data: { status: FiatOperationStatus.PROOF_SUBMITTED, validatedById: null, validatedAt: null },
-        });
-        throw new BadRequestException('El usuario no tiene una wallet registrada. No se puede proponer el mint.');
-      }
-
-      try {
-        const safeTxHash = await this.safeService.proposeMintTransaction(
-          walletAddress,
-          deposit.deposit.expectedBOBH.toString(),
-        );
-
-        // Guardar el safeTxHash en el detalle del deposito
-        await this.prisma.depositDetail.update({
-          where: { operationId: id },
-          data: { mintTxHash: safeTxHash },
-        });
-
-        this.logger.log(`Mint proposed for deposit ${id}. safeTxHash=${safeTxHash}`);
-      } catch (error) {
-        this.logger.error(`Failed to propose mint for deposit ${id}: ${error.message}`, error.stack);
-
-        // Revertir aprobacion si falla la propuesta
-        await this.prisma.fiatOperation.update({
-          where: { id },
-          data: { status: FiatOperationStatus.PROOF_SUBMITTED, validatedById: null, validatedAt: null },
-        });
-
-        throw new BadRequestException(
-          `Depósito no pudo ser aprobado: error al proponer la transacción en la multisig. ${error.message}`,
-        );
-      }
-    }
 
     return {
       depositId: updated.id,
