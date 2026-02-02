@@ -257,9 +257,21 @@ export class AdminDepositsService {
       throw new BadRequestException('Este depósito ya fue minteado.');
     }
 
-    // Solo permitir decidir cuando el depósito está listo para revisión
-    if (deposit.status !== FiatOperationStatus.PROOF_SUBMITTED) {
-      throw new BadRequestException('Solo se puede decidir cuando el depósito está en PROOF_SUBMITTED.');
+    const allowedForReject: FiatOperationStatus[] = [
+      FiatOperationStatus.PROOF_SUBMITTED,
+      FiatOperationStatus.NEED_CORRECTION,
+    ];
+
+    if (dto.action === AdminDecisionAction.APPROVE) {
+      if (deposit.status !== FiatOperationStatus.PROOF_SUBMITTED) {
+        throw new BadRequestException('Solo se puede aprobar cuando está en PROOF_SUBMITTED.');
+      }
+    }
+
+    if (dto.action === AdminDecisionAction.REJECT) {
+      if (!allowedForReject.includes(deposit.status)) {
+        throw new BadRequestException('Solo se puede rechazar desde PROOF_SUBMITTED o NEED_CORRECTION.');
+      }
     }
 
     // Exigir comprobante para aprobar

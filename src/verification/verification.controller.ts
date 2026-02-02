@@ -7,8 +7,9 @@ import { Roles } from 'src/auth/decorators/roles.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
-import { KycStatus, UserRole } from '@prisma/client';
+import { KycStatus, UserRole, VerificationStatus } from '@prisma/client';
 import { AcceptRequestDto } from './dto/accept-request.dto';
+
 interface JwtUser {
   userId: string;
   email: string;

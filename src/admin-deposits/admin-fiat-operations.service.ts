@@ -1,5 +1,6 @@
 // src/admin/admin-fiat-operations.service.ts
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma.service';
 
 export class AdminFiatOperationsService {
   constructor(private prisma: PrismaService) {}

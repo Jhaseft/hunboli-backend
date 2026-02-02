@@ -1,5 +1,7 @@
 import { Body, Controller, Patch, Param, Req } from '@nestjs/common';
 import { RequestCorrectionDto } from './dto/request-correction.dto';
+import { AdminFiatOperationsService } from './admin-fiat-operations.service';
+
 
 @Controller('admin/fiat-operations')
 export class AdminFiatOperationsController {

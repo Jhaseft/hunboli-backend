@@ -79,6 +79,9 @@ model DepositDetail {
   id              String        @id @default(uuid())
   operationId     String        @unique
   expectedBOBH    Decimal       @db.Decimal(36, 18)
+  // Safe proposal (multisig)
+  safeTxHash      String?       @unique     //identificador de la propuesta
+  safeProposedAt  DateTime?
   mintTxHash      String?
   mintedAt        DateTime?
   proofUrl        String?
