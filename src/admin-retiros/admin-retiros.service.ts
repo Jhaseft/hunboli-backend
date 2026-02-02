@@ -63,49 +63,76 @@ export class AdminRetirosService {
     }
   }
 
-  async searchBurns(query?: string, userId?: string) {
-  const where: any = {};
+ async searchBurns(query?: string, userId?: string) {
+  try {
+    // Paso 1: buscar todos los withdrawals sin filtrar por userId en la query de Prisma
+    // porque ahora userId es el nombre del usuario y lo buscaremos en memoria
+    const allWithdrawals = await this.prisma.withdrawalDetail.findMany({
+      include: {
+        operation: {
+          include: {
+            user: true,
+          },
+        },
+        bankAccount: {
+          include: {
+            bank: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
 
-  // Creamos un objeto para filtros dentro de operation
-  const operationFilter: any = {};
-  if (userId) {
-    operationFilter.userId = userId;
-  }
-  if (query) {
-    operationFilter.referenceCode = { contains: query, mode: 'insensitive' };
-  }
-
-  // Creamos un objeto para filtros dentro de bankAccount
-  const bankFilter: any = {};
-  if (query) {
-    bankFilter.accountNumber = { contains: query, mode: 'insensitive' };
-  }
-
-  // Combinamos los filtros
-  if (Object.keys(operationFilter).length > 0 || Object.keys(bankFilter).length > 0) {
-    where.AND = [];
-
-    if (Object.keys(operationFilter).length > 0) {
-      where.AND.push({ operation: operationFilter });
+    // Si no hay query ni userId (nombre), devolvemos todo
+    if (!query && !userId) {
+      return allWithdrawals;
     }
 
-    if (Object.keys(bankFilter).length > 0) {
-      where.AND.push({ bankAccount: bankFilter });
-    }
+    // Paso 2: filtro en memoria
+    const filtered = allWithdrawals.filter((w) => {
+      let matches = true;
+
+      // Filtro por query (referencia, cuenta, email, moneda)
+      if (query) {
+        const lowerQuery = query.toLowerCase();
+        const ref = w.operation?.referenceCode?.toLowerCase() || '';
+        const acc = w.bankAccount?.accountNumber?.toLowerCase() || '';
+        const email = w.operation?.user?.email?.toLowerCase() || '';
+        const currency = w.operation?.currency?.toLowerCase() || '';
+
+        const queryMatch = 
+          ref.includes(lowerQuery) || 
+          acc.includes(lowerQuery) ||
+          email.includes(lowerQuery) ||
+          currency.includes(lowerQuery);
+
+        matches = matches && queryMatch;
+      }
+
+      // Filtro por userId (que ahora es nombre de usuario)
+      if (userId) {
+        const lowerUserSearch = userId.toLowerCase();
+        const firstName = w.operation?.user?.firstName?.toLowerCase() || '';
+        const lastName = w.operation?.user?.lastName?.toLowerCase() || '';
+        const fullName = `${firstName} ${lastName}`.toLowerCase();
+
+        const userMatch = 
+          firstName.includes(lowerUserSearch) || 
+          lastName.includes(lowerUserSearch) ||
+          fullName.includes(lowerUserSearch);
+
+        matches = matches && userMatch;
+      }
+
+      return matches;
+    });
+
+    return filtered;
+  } catch (error) {
+    throw error;
   }
-
-  const results = await this.prisma.withdrawalDetail.findMany({
-    where,
-    include: {
-      operation: true,
-      bankAccount: true,
-    },
-    orderBy: {
-      createdAt: 'desc',
-    },
-  });
-
-  return results;
 }
 
   async update(
@@ -172,6 +199,21 @@ export class AdminRetirosService {
     return operation;
   }
 
+ async getPendingCount() {
+  try {
+    const pendingCount = await this.prisma.withdrawalDetail.count({
+      where: {
+        operation: {
+          status: 'PENDING',
+        },
+      },
+    });
+
+    return { pendingCount };
+  } catch (error) {
+    throw error;
+  }
+}
 
 
 }
