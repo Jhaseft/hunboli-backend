@@ -11,6 +11,10 @@ export class CreateRetiroDto {
   amount: string;
 
   @IsOptional()
+  @IsString()
+  txHash?: string;
+
+  @IsOptional()
   @IsDateString()
   rateQuotedAt?: string;
 
