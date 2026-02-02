@@ -107,7 +107,7 @@ model WithdrawalDetail {
 
   bankAccountId BigInt
   bankAccount   BankAccount @relation(fields: [bankAccountId], references: [id])
-
+  TxHash String    // hash de la transacción en blockchain
   payoutTxRef String? // referencia bancaria / lote / transferencia
   paidAt      DateTime? // cuando se ejecutó el pago
   logProofUrl String? // url del comprobante de pago
