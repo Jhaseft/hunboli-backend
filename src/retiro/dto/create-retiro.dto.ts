@@ -10,9 +10,9 @@ export class CreateRetiroDto {
   @IsDecimal({ decimal_digits: '0,18' })
   amount: string;
 
-  @IsOptional()
+
   @IsString()
-  txHash?: string;
+  txHash: string;
 
   @IsOptional()
   @IsDateString()
