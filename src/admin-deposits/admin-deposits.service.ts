@@ -276,6 +276,22 @@ export class AdminDepositsService {
     };
   }
 
+  async getPendingMintsCount(u: JwtUser) {
+    this.assertAdminOrOperator(u);
+
+    const pendingCount = await this.prisma.fiatOperation.count({
+      where: {
+        type: FiatOperationType.DEPOSIT,
+        status: FiatOperationStatus.APPROVED,
+        deposit: {
+          safeTxHash: { equals: null },
+        },
+      },
+    });
+
+    return { pendingCount };
+  }
+
   async getOne(u: JwtUser, id: string) {
     this.assertAdminOrOperator(u);
 

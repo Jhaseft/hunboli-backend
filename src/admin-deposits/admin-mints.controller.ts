@@ -12,4 +12,9 @@ export class AdminMintsController {
   list(@Req() req: any, @Query() q: ListAdminMintsQueryDto) {
     return this.adminDepositsService.listMints(req.user, q);
   }
+
+  @Get('count-pending')
+  countPending(@Req() req: any) {
+    return this.adminDepositsService.getPendingMintsCount(req.user);
+  }
 }
