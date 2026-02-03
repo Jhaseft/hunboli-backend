@@ -186,7 +186,7 @@ export class EventProcessorService {
         // Buscar el WithdrawalDetail que espera el burn (sin burnTxHash, más antiguo)
         const withdrawal = await this.prisma.withdrawalDetail.findFirst({
             where: {
-                burnTxHash: null,                        // Aún no se ejecutó el burn
+                TxHash: null,                        // Aún no se ejecutó el burn
                 operation: {
                     userId: existingUser.id,
                     type: 'WITHDRAW',
@@ -204,7 +204,7 @@ export class EventProcessorService {
         await this.prisma.withdrawalDetail.update({
             where: { id: withdrawal.id },
             data: {
-                burnTxHash: log.transactionHash,
+                TxHash: log.transactionHash,
                 burnedAt: new Date(),
             },
         });
@@ -246,7 +246,7 @@ export class EventProcessorService {
         // Buscar la operación pendiente
         const withdrawal = await this.prisma.withdrawalDetail.findFirst({
             where: {
-                burnTxHash: null,
+                TxHash: null,
                 operation: {
                     userId: existingUser.id,
                     type: 'WITHDRAW',
