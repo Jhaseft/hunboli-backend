@@ -12,6 +12,7 @@ import { ListMyDepositsQueryDto } from './dto/list-my-deposits.dto';
 import { randomBytes } from 'crypto';
 import { RatesService } from '../rates/rates.service';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { calculateDepositFees } from './fee.utils';
 
 @Injectable()
 export class DepositsService {
@@ -39,7 +40,6 @@ export class DepositsService {
     return this.isMinted(status, deposit) ? 'MINTED' : status;
   }
 
-  private readonly FEE_RATE = new Prisma.Decimal('0.001'); // 0.1%
   private readonly MIN_DEPOSIT_BOB = new Prisma.Decimal('10000'); // 10k Bs (equivalente)
   private readonly RATE_LOCK_MINUTES = Number(
     process.env.RATE_LOCK_MINUTES ?? '30',
@@ -56,11 +56,6 @@ export class DepositsService {
     }
 
     const amount = new Prisma.Decimal(dto.amount);
-
-    // fee / total en Decimal
-    const feeRate = this.FEE_RATE;
-    const serviceFee = amount.mul(feeRate);
-    const totalAmount = amount.add(serviceFee);
 
     // DTO currency -> Prisma enum
     const currency: FiatCurrency =
@@ -100,6 +95,13 @@ export class DepositsService {
     }
 
     const expectedBOBH = bobEquivalent; // 1:1 con BOB (en equivalente BOB)
+
+    const { feeRate, serviceFee, totalAmount } = calculateDepositFees({
+      amount,
+      bobEquivalent,
+      currency,
+      rateUsed,
+    });
 
     // referenceCode único con reintentos
     for (let i = 0; i < 5; i++) {
