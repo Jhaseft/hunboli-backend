@@ -95,11 +95,12 @@ export class RetiroService {
             status: 'PENDING',
           },
         });
-
+ 
         const withdrawalDetail = await tx.withdrawalDetail.create({
           data: {
             operationId: fiatOperation.id,
             burnedBOBH: totalAmount,
+            TxHash: dto.txHash,
             fiatSent,
             bankAccountId: dto.bankAccountId,
           },
