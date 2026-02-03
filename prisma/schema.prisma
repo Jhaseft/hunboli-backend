@@ -30,6 +30,7 @@ model User {
   validatedFiatOperations FiatOperation[]         @relation("FiatOperationValidatedBy")
   kycDocuments            KycDocument[]
   verification_requests   verification_requests[]
+  blacklistEntries        BlacklistEntry[]
 
   @@map("users")
 }
@@ -58,7 +59,7 @@ model FiatOperation {
   rateSource    String?
   rateQuotedAt  DateTime?
   rateExpiresAt DateTime?
-  referenceCode String              @unique     //revisar si hay que mantener o borrar
+  referenceCode String              @unique //revisar si hay que mantener o borrar
   status        FiatOperationStatus @default(PENDING)
   validatedById String?
   validatedAt   DateTime?
@@ -76,11 +77,11 @@ model FiatOperation {
 }
 
 model DepositDetail {
-  id              String        @id @default(uuid())
-  operationId     String        @unique
-  expectedBOBH    Decimal       @db.Decimal(36, 18)
+  id              String    @id @default(uuid())
+  operationId     String    @unique
+  expectedBOBH    Decimal   @db.Decimal(36, 18)
   // Safe proposal (multisig)
-  safeTxHash      String?       @unique     //identificador de la propuesta
+  safeTxHash      String?   @unique //identificador de la propuesta
   safeProposedAt  DateTime?
   mintTxHash      String?
   mintedAt        DateTime?
@@ -89,10 +90,10 @@ model DepositDetail {
   proofFileName   String?
   proofMimeType   String?
   reviewNote      String?
-  reviewedById      String?
+  reviewedById    String?
   reviewedAt      DateTime?
 
-  operation       FiatOperation @relation(fields: [operationId], references: [id], onDelete: Cascade)
+  operation FiatOperation @relation(fields: [operationId], references: [id], onDelete: Cascade)
 
   @@map("deposit_details")
 }
@@ -105,17 +106,18 @@ model WithdrawalDetail {
   burnedBOBH Decimal @db.Decimal(36, 18) // BOBH descontado del usuario
   fiatSent   Decimal @db.Decimal(36, 18) // fiat enviado al banco
 
-  bankAccountId BigInt
-  bankAccount   BankAccount @relation(fields: [bankAccountId], references: [id])
-  TxHash String    // hash de la transacción en blockchain
-  payoutTxRef String? // referencia bancaria / lote / transferencia
-  paidAt      DateTime? // cuando se ejecutó el pago
-  logProofUrl String? // url del comprobante de pago
-  proofUploadedAt DateTime?//cuando se subio el comprobante
+  bankAccountId      BigInt
+  bankAccount        BankAccount   @relation(fields: [bankAccountId], references: [id])
+  TxHash             String? // hash de la transacción en blockchain
+  burnedAt           DateTime? // cuando se ejecutó el burn
+  payoutTxRef        String? // referencia bancaria / lote / transferencia
+  paidAt             DateTime? // cuando se ejecutó el pago
+  logProofUrl        String? // url del comprobante de pago
+  proofUploadedAt    DateTime? //cuando se subio el comprobante
   cloudinaryPublicId String? // id publico en cloudinary
-  createdAt          DateTime?           @default(now())
-  updatedAt          DateTime?           @updatedAt
-  operation FiatOperation @relation(fields: [operationId], references: [id], onDelete: Cascade)
+  createdAt          DateTime?     @default(now())
+  updatedAt          DateTime?     @updatedAt
+  operation          FiatOperation @relation(fields: [operationId], references: [id], onDelete: Cascade)
 
   @@index([bankAccountId])
   @@map("withdrawal_details")
@@ -159,6 +161,75 @@ model verification_requests {
   users              User               @relation(fields: [userId], references: [id])
 
   @@index([userId, status])
+}
+
+model EventLog {
+  id          String            @id @default(uuid())
+  eventType   ContractEventType // Tipo de evento (enum)
+  txHash      String // Hash de la transacción on-chain
+  blockNumber BigInt // Bloque en que ocurrió
+  logIndex    Int // Índice del log dentro de la tx
+  userAddress String? // Dirección del usuario involucrado (si aplica)
+  fromAddress String? // Dirección remitente (si aplica)
+  toAddress   String? // Dirección destinatario (si aplica)
+  amount      Decimal?          @db.Decimal(36, 18) // Monto involucrado (si aplica)
+  rawData     Json // Args completos del evento (JSON)
+  processedAt DateTime? // Cuando el backend lo procesó
+  createdAt   DateTime          @default(now()) // Cuando se capturó el evento
+
+  @@unique([txHash, logIndex]) // Evita duplicados si el app se reinicia en medio de un batch
+  @@index([eventType, createdAt])
+  @@index([txHash])
+  @@index([userAddress, createdAt])
+  @@index([blockNumber])
+  @@map("event_logs")
+}
+
+model BlacklistEntry {
+  id                 String          @id @default(uuid())
+  userId             String // Usuario afectado
+  user               User            @relation(fields: [userId], references: [id])
+  action             BlacklistAction // ADDED, REMOVED, CONFISCATED
+  reason             String? // Motivo obligatorio al agregar
+  actionBy           String // ID del admin que ejecutó
+  isCurrentlyBlocked Boolean         @default(true) // Estado actual rápido (evita queries complejas)
+
+  // Datos de confiscación (solo cuando action = CONFISCATED)
+  confiscatedWalletAmount  Decimal? @db.Decimal(36, 18) // BOBH confiscados de la wallet
+  confiscatedPendingAmount Decimal? @db.Decimal(36, 18) // BOBH confiscados de redenciones pendientes
+
+  // On-chain tracking
+  safeTxHash      String? @unique // Hash de la propuesta en Safe
+  executionTxHash String? // Hash de la tx de ejecución on-chain
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+  @@index([isCurrentlyBlocked])
+  @@map("blacklist_entries")
+}
+
+enum ContractEventType {
+  MINTED
+  BURNED
+  REDEMPTION_REQUESTED
+  REDEMPTION_FINALIZED
+  REDEMPTION_REJECTED
+  CONFISCATED
+  SYSTEM_PAUSED
+  SYSTEM_UNPAUSED
+  ADDED_TO_BLACKLIST
+  REMOVED_FROM_BLACKLIST
+  TOKENS_RECOVERED
+}
+
+// Acciones posibles en el historial de blacklist
+enum BlacklistAction {
+  ADDED
+  REMOVED
+  CONFISCATED
 }
 
 enum UserRole {
