@@ -77,7 +77,7 @@ export class SafeService implements OnModuleInit {
    * @param to Direccion de la wallet destino (usuario)
    * @param amount Cantidad de BOBH como string decimal (ej: "100.50")
    * @returns safeTxHash de la propuesta creada
-   */
+   */ 
   async proposeMintTransaction(to: string, amount: string): Promise<string> {
     const amountParsed = ethers.utils.parseUnits(amount, 6);
     const data = this.mintInterface.encodeFunctionData('mint', [to, amountParsed]);

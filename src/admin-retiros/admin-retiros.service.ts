@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma.service';
 import { UpdateAdminRetiroDto } from './dto/update-admin-retiro.dto';
 import { FiatOperationStatus as PrismaStatus } from '@prisma/client';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
+import { SafeService } from 'src/safe/safe.service';
 
 interface JwtUser {
   userId: string;
@@ -19,6 +20,7 @@ export class AdminRetirosService {
   constructor(
     private prisma: PrismaService,
     private readonly cloudinary: CloudinaryService,
+    private readonly safeService: SafeService,
   ) { }
 
 
@@ -63,77 +65,77 @@ export class AdminRetirosService {
     }
   }
 
- async searchBurns(query?: string, userId?: string) {
-  try {
-    // Paso 1: buscar todos los withdrawals sin filtrar por userId en la query de Prisma
-    // porque ahora userId es el nombre del usuario y lo buscaremos en memoria
-    const allWithdrawals = await this.prisma.withdrawalDetail.findMany({
-      include: {
-        operation: {
-          include: {
-            user: true,
+  async searchBurns(query?: string, userId?: string) {
+    try {
+      // Paso 1: buscar todos los withdrawals sin filtrar por userId en la query de Prisma
+      // porque ahora userId es el nombre del usuario y lo buscaremos en memoria
+      const allWithdrawals = await this.prisma.withdrawalDetail.findMany({
+        include: {
+          operation: {
+            include: {
+              user: true,
+            },
+          },
+          bankAccount: {
+            include: {
+              bank: true,
+            },
           },
         },
-        bankAccount: {
-          include: {
-            bank: true,
-          },
+        orderBy: {
+          createdAt: 'desc',
         },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+      });
 
-    // Si no hay query ni userId (nombre), devolvemos todo
-    if (!query && !userId) {
-      return allWithdrawals;
+      // Si no hay query ni userId (nombre), devolvemos todo
+      if (!query && !userId) {
+        return allWithdrawals;
+      }
+
+      // Paso 2: filtro en memoria
+      const filtered = allWithdrawals.filter((w) => {
+        let matches = true;
+
+        // Filtro por query (referencia, cuenta, email, moneda)
+        if (query) {
+          const lowerQuery = query.toLowerCase();
+          const ref = w.operation?.referenceCode?.toLowerCase() || '';
+          const acc = w.bankAccount?.accountNumber?.toLowerCase() || '';
+          const email = w.operation?.user?.email?.toLowerCase() || '';
+          const currency = w.operation?.currency?.toLowerCase() || '';
+
+          const queryMatch =
+            ref.includes(lowerQuery) ||
+            acc.includes(lowerQuery) ||
+            email.includes(lowerQuery) ||
+            currency.includes(lowerQuery);
+
+          matches = matches && queryMatch;
+        }
+
+        // Filtro por userId (que ahora es nombre de usuario)
+        if (userId) {
+          const lowerUserSearch = userId.toLowerCase();
+          const firstName = w.operation?.user?.firstName?.toLowerCase() || '';
+          const lastName = w.operation?.user?.lastName?.toLowerCase() || '';
+          const fullName = `${firstName} ${lastName}`.toLowerCase();
+
+          const userMatch =
+            firstName.includes(lowerUserSearch) ||
+            lastName.includes(lowerUserSearch) ||
+            fullName.includes(lowerUserSearch);
+
+          matches = matches && userMatch;
+        }
+
+        return matches;
+      });
+
+      return filtered;
+    } catch (error) {
+      throw error;
     }
-
-    // Paso 2: filtro en memoria
-    const filtered = allWithdrawals.filter((w) => {
-      let matches = true;
-
-      // Filtro por query (referencia, cuenta, email, moneda)
-      if (query) {
-        const lowerQuery = query.toLowerCase();
-        const ref = w.operation?.referenceCode?.toLowerCase() || '';
-        const acc = w.bankAccount?.accountNumber?.toLowerCase() || '';
-        const email = w.operation?.user?.email?.toLowerCase() || '';
-        const currency = w.operation?.currency?.toLowerCase() || '';
-
-        const queryMatch = 
-          ref.includes(lowerQuery) || 
-          acc.includes(lowerQuery) ||
-          email.includes(lowerQuery) ||
-          currency.includes(lowerQuery);
-
-        matches = matches && queryMatch;
-      }
-
-      // Filtro por userId (que ahora es nombre de usuario)
-      if (userId) {
-        const lowerUserSearch = userId.toLowerCase();
-        const firstName = w.operation?.user?.firstName?.toLowerCase() || '';
-        const lastName = w.operation?.user?.lastName?.toLowerCase() || '';
-        const fullName = `${firstName} ${lastName}`.toLowerCase();
-
-        const userMatch = 
-          firstName.includes(lowerUserSearch) || 
-          lastName.includes(lowerUserSearch) ||
-          fullName.includes(lowerUserSearch);
-
-        matches = matches && userMatch;
-      }
-
-      return matches;
-    });
-
-    return filtered;
-  } catch (error) {
-    throw error;
   }
-}
 
   async update(
     id: string,
@@ -141,16 +143,31 @@ export class AdminRetirosService {
     user: JwtUser,
     file?: Express.Multer.File,
   ) {
-    // Buscar el withdrawal
+
     const withdrawal = await this.prisma.withdrawalDetail.findUnique({
       where: { id },
-      select: { id: true, operationId: true },
+      include: {
+        operation: true,
+      },
     });
 
     if (!withdrawal) {
       throw new NotFoundException(`WithdrawalDetail with id ${id} not found`);
     }
 
+    const userw = await this.prisma.user.findUnique({
+      where: { id: withdrawal.operation.userId },
+    });
+
+    if (!userw?.walletAddress) {
+      throw new BadRequestException("Usuario sin wallet");
+    }
+
+    const walletAddress = userw.walletAddress;
+    const totalAmount = withdrawal.operation.totalAmount;
+
+    console.log('totalAmount:', totalAmount);
+    console.log('walletAddress:', walletAddress);
 
     const fiatUpdateData: any = {
       status: dto.status,
@@ -160,7 +177,7 @@ export class AdminRetirosService {
     if (dto.status === PrismaStatus.PROCESSED) {
       fiatUpdateData.processedAt = new Date();
       fiatUpdateData.validatedAt = new Date();
-      fiatUpdateData.validatedBy = { connect: { id: user.userId } }; // ⚡ Prisma requiere "connect"
+      fiatUpdateData.validatedBy = { connect: { id: user.userId } };
     }
 
     const operation = await this.prisma.fiatOperation.update({
@@ -168,6 +185,24 @@ export class AdminRetirosService {
       data: fiatUpdateData,
     });
 
+
+    if (dto.status === PrismaStatus.PROCESSED) {
+
+      await this.safeService.proposeFinalizeRedemptionTransaction(
+        walletAddress,
+        totalAmount.toString()
+      );
+
+    }
+
+    if (dto.status === PrismaStatus.REJECTED) {
+
+      await this.safeService.proposeRejectRedemptionTransaction(
+        walletAddress,
+        totalAmount.toString()
+      );
+
+    }
 
     const withdrawalUpdateData: any = {};
 
@@ -188,7 +223,6 @@ export class AdminRetirosService {
       withdrawalUpdateData.proofUploadedAt = new Date();
     }
 
-    // Solo actualizamos si hay algo
     if (Object.keys(withdrawalUpdateData).length > 0) {
       await this.prisma.withdrawalDetail.update({
         where: { id },
@@ -199,21 +233,21 @@ export class AdminRetirosService {
     return operation;
   }
 
- async getPendingCount() {
-  try {
-    const pendingCount = await this.prisma.withdrawalDetail.count({
-      where: {
-        operation: {
-          status: 'PENDING',
+  async getPendingCount() {
+    try {
+      const pendingCount = await this.prisma.withdrawalDetail.count({
+        where: {
+          operation: {
+            status: 'PENDING',
+          },
         },
-      },
-    });
+      });
 
-    return { pendingCount };
-  } catch (error) {
-    throw error;
+      return { pendingCount };
+    } catch (error) {
+      throw error;
+    }
   }
-}
 
 
 }

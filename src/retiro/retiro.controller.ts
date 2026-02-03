@@ -9,7 +9,7 @@ interface JwtUser {
   email: string;
   isVerified: boolean;
 }
-
+ 
 @Controller('retiro')
 export class RetiroController {
   constructor(private retiroService: RetiroService) {}
@@ -17,7 +17,7 @@ export class RetiroController {
   @UseGuards(JwtAuthGuard)
   @Post()
   create(@Body() dto: CreateRetiroDto, @CurrentUser() user: JwtUser) {
-    console.log(user.userId);
+
     return this.retiroService.create(dto, String(user.userId));
   }
 }

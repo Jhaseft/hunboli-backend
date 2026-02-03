@@ -375,11 +375,11 @@ export class AdminDepositsService {
     if (op.deposit.safeTxHash) {
       throw new BadRequestException('Este depósito ya tiene un mint propuesto en Safe.');
     }
-
+ 
     // 6) Monto: expectedBOBH -> string con max 6 decimales
     const expected = op.deposit.expectedBOBH.toString();
     const amount6 = this.toMaxDecimals(expected, 6);
-
+ 
     // 7) Llamada a Safe
     const safeTxHash = await this.safeService.proposeMintTransaction(to, amount6);
 
