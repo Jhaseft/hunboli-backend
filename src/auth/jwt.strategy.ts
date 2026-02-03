@@ -10,6 +10,7 @@ interface JwtPayload {
   role: UserRole;
   kycStatus: KycStatus;
   isVerified: boolean;
+  walletAddress: string;
 }
 
 @Injectable()
@@ -29,6 +30,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       role: payload.role,
       kycStatus: payload.kycStatus,
       isVerified: payload.isVerified,
+      walletAddress: payload.walletAddress,
     };
   }
 }

@@ -7,7 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma.service';
 import { CreateRetiroDto } from './dto/create-retiro.dto';
 
-@Injectable() 
+@Injectable()
 export class RetiroService {
   constructor(
     private prisma: PrismaService,
@@ -41,16 +41,16 @@ export class RetiroService {
   async create(dto: CreateRetiroDto, userId: string) {
 
     const referenceCode = `RET-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const monto_minimo=this.getmount_minimo();
-    console.log('monto minimo',monto_minimo)
+    const monto_minimo = this.getmount_minimo();
+    console.log('monto minimo', monto_minimo)
     const amount = Number(dto.amount);
-    const ratesource =this.getrate_source();
+    const ratesource = this.getrate_source();
 
     //mosnto minimo = 100 y amount = 10
     //100 < 10 ? -> no
     //monto minimo =10000 y amount =9000
     //10000 < 9000 ? -> no
-    if ( monto_minimo > amount ) {
+    if (monto_minimo > amount) {
       throw new BadRequestException(`El monto es menor a ${monto_minimo} > ${amount} BOBHs`);
     }
 
@@ -74,7 +74,17 @@ export class RetiroService {
     const { rateUsed, fiatSent } = this.calculateConversion(
       dto.currency,
       amount,
-    ); 
+    );
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user?.walletAddress) {
+      throw new BadRequestException("Usuario sin wallet");
+    }
+
+
 
     try {
       const result = await this.prisma.$transaction(async (tx) => {
@@ -95,7 +105,7 @@ export class RetiroService {
             status: 'PENDING',
           },
         });
- 
+
         const withdrawalDetail = await tx.withdrawalDetail.create({
           data: {
             operationId: fiatOperation.id,

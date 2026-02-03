@@ -56,6 +56,7 @@ export class AuthService {
       role: user.role,
       kycStatus: user.kycStatus,
       isVerified: user.isVerified,
+      walletAddress: user.walletAddress,
     };
     return {
       access_token: this.jwtService.sign(payload),
