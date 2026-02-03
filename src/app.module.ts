@@ -19,6 +19,7 @@ import { VerificationModule } from './verification/verification.module';
 import { RateModule } from './rate/rate.module';
 import { AdminRetirosModule } from './admin-retiros/admin-retiros.module';
 import { JobsModule } from './jobs/jobs.module';
+import { ListenerModule } from './listener/listener.module';
 
 @Module({
   imports: [
@@ -63,6 +64,7 @@ import { JobsModule } from './jobs/jobs.module';
     RateModule,
     AdminRetirosModule,
     JobsModule,
+    ListenerModule,
   ],
   controllers: [],
   providers: [],
