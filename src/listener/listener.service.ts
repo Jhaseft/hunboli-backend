@@ -105,7 +105,7 @@ export class ListenerService implements OnModuleInit{
   }
 
     // ─── POLLER PRINCIPAL (cada 10 segundos) ───────────────────
-  @Cron(CronExpression.EVERY_10_SECONDS)
+  @Cron(CronExpression.EVERY_30_SECONDS)
   async pollEvents() {
     if (!this.listenerEnabled || !this.isInitialized || this.isProcessing) return;
 
