@@ -1,34 +1,21 @@
 import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
 import { ListenerService } from './listener.service';
-import { CreateListenerDto } from './dto/create-listener.dto';
-import { UpdateListenerDto } from './dto/update-listener.dto';
+import { EventProcessorService } from './processors/event-processor.service';
 
 @Controller('listener')
 export class ListenerController {
-  constructor(private readonly listenerService: ListenerService) {}
+  constructor(
+    private readonly listenerService: ListenerService,
+    private processorService: EventProcessorService
+  ) {}
+  
 
-  @Post()
-  create(@Body() createListenerDto: CreateListenerDto) {
-    return this.listenerService.create(createListenerDto);
+  @Get('status')
+  getStatus(){
+    return {
+      ...this.listenerService.getStatus(),
+      contractPaused: this.processorService.getIsPaused(),
+    }
   }
 
-  @Get()
-  findAll() {
-    return this.listenerService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.listenerService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateListenerDto: UpdateListenerDto) {
-    return this.listenerService.update(+id, updateListenerDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.listenerService.remove(+id);
-  }
 }

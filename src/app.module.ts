@@ -21,6 +21,7 @@ import { AdminRetirosModule } from './admin-retiros/admin-retiros.module';
 import { JobsModule } from './jobs/jobs.module';
 import { ListenerModule } from './listener/listener.module';
 import { KycModule } from './kyc/kyc.module';
+import { HistorialRetiroModule } from './historial-retiro/historial-retiro.module';
 
 @Module({
   imports: [
@@ -67,6 +68,7 @@ import { KycModule } from './kyc/kyc.module';
     JobsModule,
     ListenerModule,
     KycModule,
+    HistorialRetiroModule,
   ],
   controllers: [],
   providers: [],

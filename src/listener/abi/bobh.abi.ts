@@ -22,6 +22,14 @@ export const BOBH_EVENTS_ABI = parseAbi([
     'event AddedToBlacklist(address indexed account, address indexed by)',
     'event RemovedFromBlacklist(address indexed account, address indexed by)',
     'event TokensRecovered(address indexed token, address indexed to, uint256 amount)',
+
+    // ── ERC20 Estándar (solo Transfer P2P entre usuarios)
+    'event Transfer(address indexed from, address indexed to, uint256 value)',
+]);
+
+// ABI para funciones de lectura del contrato
+export const BOBH_READ_ABI = parseAbi([
+    'function paused() view returns (bool)',
 ]);
 
 // ─────────────────────────────────────────────────────────────
@@ -39,4 +47,5 @@ export const EVENT_NAME_TO_TYPE: Record<string, string> = {
     AddedToBlacklist: 'ADDED_TO_BLACKLIST',
     RemovedFromBlacklist: 'REMOVED_FROM_BLACKLIST',
     TokensRecovered: 'TOKENS_RECOVERED',
+    Transfer: 'TRANSFER', // Solo se guarda si es P2P (usuario a usuario)
 };

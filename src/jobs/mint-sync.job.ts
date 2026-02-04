@@ -16,7 +16,7 @@ export class MintSyncJob {
     private readonly safeService: SafeService,
   ) {}
 
-  @Cron('*/30 * * * * *')
+  @Cron('*/40 * * * * *')
   async handleCron() {
     if (this.running) {
       this.logger.warn('Mint sync skipped: previous run still in progress.');
