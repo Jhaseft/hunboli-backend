@@ -17,8 +17,9 @@
 // ─────────────────────────────────────────────────────────────
 
 import { Injectable, Logger } from '@nestjs/common';
-import { formatUnits } from 'viem';
+import { formatUnits, type PublicClient, type Address } from 'viem';
 import { PrismaService } from '../../../prisma/prisma.service';
+import { BOBH_READ_ABI } from '../abi/bobh.abi';
 
 @Injectable()
 export class EventProcessorService {
@@ -412,5 +413,22 @@ export class EventProcessorService {
 
     setIsPaused(value: boolean) {
         this.isPaused = value;
+    }
+
+    // ─── INICIALIZAR estado de pausa desde el contrato ────────────
+    async initializePausedState(publicClient: PublicClient, contractAddress: Address) {
+        try {
+            const paused = await publicClient.readContract({
+                address: contractAddress,
+                abi: BOBH_READ_ABI,
+                functionName: 'paused',
+            });
+            this.isPaused = paused as boolean;
+            this.logger.log(`🔄 Estado de pausa inicializado: ${this.isPaused ? '⏸️  PAUSADO' : '▶️  ACTIVO'}`);
+        } catch (error) {
+            this.logger.error('❌ Error al leer estado de pausa del contrato:', error.message);
+            // En caso de error, asumir no pausado por defecto (fail-safe)
+            this.isPaused = false;
+        }
     }
 }

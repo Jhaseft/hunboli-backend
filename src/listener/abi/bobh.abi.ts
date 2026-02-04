@@ -24,6 +24,11 @@ export const BOBH_EVENTS_ABI = parseAbi([
     'event TokensRecovered(address indexed token, address indexed to, uint256 amount)',
 ]);
 
+// ABI para funciones de lectura del contrato
+export const BOBH_READ_ABI = parseAbi([
+    'function paused() view returns (bool)',
+]);
+
 // ─────────────────────────────────────────────────────────────
 // Mapeo: nombre del evento (Solidity) → enum ContractEventType (Prisma)
 // ─────────────────────────────────────────────────────────────
