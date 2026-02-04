@@ -46,6 +46,7 @@ export class EventProcessorService {
             case 'ADDED_TO_BLACKLIST': await this.onAddedToBlacklist(rawLog); break;
             case 'REMOVED_FROM_BLACKLIST': await this.onRemovedFromBlacklist(rawLog); break;
             case 'TOKENS_RECOVERED': this.logger.log(`🔄 TokensRecovered logged`); break;
+            case 'TRANSFER': await this.onTransfer(rawLog); break;
         }
     }
 
@@ -413,6 +414,25 @@ export class EventProcessorService {
 
     setIsPaused(value: boolean) {
         this.isPaused = value;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // TRANSFER (P2P entre usuarios)
+    // ═══════════════════════════════════════════════════════════════
+    // Solo se procesa si es una transferencia directa usuario → usuario.
+    // Ya filtrado en listener.service.ts (no mint, no burn, no redemption).
+    private async onTransfer(log: any) {
+        const { from, to, value } = log.args;
+        const humanAmount = formatUnits(value, 6);
+        this.logger.log(`💸 TRANSFER P2P: ${humanAmount} BOBH | de ${from} → ${to}`);
+
+        // Aquí puedes agregar lógica adicional si necesitas:
+        // - Detectar transferencias sospechosas
+        // - Validar límites de transferencia
+        // - Notificar al usuario
+        // - etc.
+
+        // Por ahora solo loggeamos (el evento ya está guardado en EventLog)
     }
 
     // ─── INICIALIZAR estado de pausa desde el contrato ────────────

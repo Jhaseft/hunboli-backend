@@ -163,10 +163,34 @@ export class ListenerService implements OnModuleInit{
     if (!eventName) return;
 
     // Mapear nombre del evento a enum de Prisma
-    const eventType = EVENT_NAME_TO_TYPE[eventName] as ContractEventType; 
+    const eventType = EVENT_NAME_TO_TYPE[eventName] as ContractEventType;
     if (!eventType) {
       this.logger.warn(`⚠️ Evento no mapeado: ${eventName}`);
       return;
+    }
+
+    // ── FILTRO ESPECIAL: solo Transfer P2P (usuario → usuario) ──
+    if (eventType === 'TRANSFER') {
+      const { from, to } = log.args;
+      const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+
+      // Ignorar si es mint (from = 0x0)
+      if (from.toLowerCase() === ZERO_ADDRESS.toLowerCase()) {
+        return;
+      }
+
+      // Ignorar si es burn (to = 0x0)
+      if (to.toLowerCase() === ZERO_ADDRESS.toLowerCase()) {
+        return;
+      }
+
+      // Ignorar si involucra al contrato (requestRedemption o rejectRedemption)
+      const contractAddress = this.contractAddress.toLowerCase();
+      if (from.toLowerCase() === contractAddress || to.toLowerCase() === contractAddress) {
+        return;
+      }
+
+      // ✅ Es una transferencia P2P legítima → continuar
     }
 
     // Normalizar los campos que vamos a guardar en EventLog
