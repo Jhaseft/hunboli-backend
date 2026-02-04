@@ -16,12 +16,15 @@ import { memoryStorage } from 'multer';
 import { DepositsService } from './deposits.service';
 import { CreateDepositDto } from './dto/create-deposit.dto';
 import { ListMyDepositsQueryDto } from './dto/list-my-deposits.dto';
+import { KycVerified } from '../auth/decorators/kyc-verified.decorator';
+import { KycVerifiedGuard } from '../auth/guards/kyc-verified.guard';
 
 @Controller('deposits')
 export class DepositsController {
   constructor(private readonly depositsService: DepositsService) {}
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), KycVerifiedGuard)
+  @KycVerified()
   @Post()
   async create(@Req() req: any, @Body() dto: CreateDepositDto) {
     const userId = req.user?.userId;
@@ -36,7 +39,8 @@ export class DepositsController {
     return this.depositsService.listMyDeposits(userId, q);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthGuard('jwt'), KycVerifiedGuard)
+  @KycVerified()
   @Post(':id/proof')
   @UseInterceptors(
     FileInterceptor('file', {

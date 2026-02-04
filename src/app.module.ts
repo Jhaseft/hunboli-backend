@@ -20,6 +20,7 @@ import { RateModule } from './rate/rate.module';
 import { AdminRetirosModule } from './admin-retiros/admin-retiros.module';
 import { JobsModule } from './jobs/jobs.module';
 import { ListenerModule } from './listener/listener.module';
+import { KycModule } from './kyc/kyc.module';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { ListenerModule } from './listener/listener.module';
     AdminRetirosModule,
     JobsModule,
     ListenerModule,
+    KycModule,
   ],
   controllers: [],
   providers: [],

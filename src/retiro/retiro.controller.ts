@@ -3,6 +3,8 @@ import { RetiroService } from './retiro.service';
 import { CreateRetiroDto } from './dto/create-retiro.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { KycVerified } from '../auth/decorators/kyc-verified.decorator';
+import { KycVerifiedGuard } from '../auth/guards/kyc-verified.guard';
  
 interface JwtUser {
   userId: string;
@@ -14,7 +16,8 @@ interface JwtUser {
 export class RetiroController {
   constructor(private retiroService: RetiroService) {}
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, KycVerifiedGuard)
+  @KycVerified()
   @Post()
   create(@Body() dto: CreateRetiroDto, @CurrentUser() user: JwtUser) {
 
