@@ -53,8 +53,9 @@ export class CloudinaryService {
     userId: string;
     depositId: string;
     referenceCode: string;
+    isPrivate?: boolean;
   }): Promise<{ secureUrl: string; publicId: string }> {
-    const { file, userId, depositId } = params;
+    const { file, userId, depositId, isPrivate } = params;
 
     const isImage = file.mimetype.startsWith('image/');
     const isPdf = file.mimetype === 'application/pdf';
@@ -65,6 +66,23 @@ export class CloudinaryService {
     const resourceType: 'image' | 'raw' = isImage ? 'image' : 'raw';
     const folder = `hunboli/users/${userId}/deposits/${depositId}`;
     const publicId = `proof_${Date.now()}`;
+
+    if (isPrivate) {
+      const uploaded = await this.uploadPrivate({
+        file,
+        folder,
+        publicId,
+        resourceType,
+      });
+
+      const signedUrl = this.getSignedUrl({
+        publicId: uploaded.publicId,
+        resourceType: uploaded.resourceType,
+        expiresInSeconds: 10 * 60,
+      });
+
+      return { secureUrl: signedUrl, publicId: uploaded.publicId };
+    }
 
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
@@ -88,8 +106,9 @@ export class CloudinaryService {
   async uploadVerificationFile(params: {
     file: Express.Multer.File;
     userId: string;
+    isPrivate?: boolean;
   }): Promise<{ secureUrl: string; publicId: string }> {
-    const { file, userId } = params;
+    const { file, userId, isPrivate } = params;
     const isImage = file.mimetype.startsWith('image/');
     const isPdf = file.mimetype === 'application/pdf';
     if (!isImage && !isPdf) {
@@ -98,6 +117,24 @@ export class CloudinaryService {
     const resourceType: 'image' | 'raw' = isImage ? 'image' : 'raw';
     const folder = `hunboli/users/${userId}/deposits/verification`;
     const publicId = `proof_${Date.now()}`;
+
+    if (isPrivate) {
+      const uploaded = await this.uploadPrivate({
+        file,
+        folder,
+        publicId,
+        resourceType,
+      });
+
+      const signedUrl = this.getSignedUrl({
+        publicId: uploaded.publicId,
+        resourceType: uploaded.resourceType,
+        expiresInSeconds: 10 * 60,
+      });
+
+      return { secureUrl: signedUrl, publicId: uploaded.publicId };
+    }
+
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         { folder, public_id: publicId, resource_type: resourceType },
@@ -121,8 +158,9 @@ export class CloudinaryService {
   file: Express.Multer.File;
   userId: string;
   withdrawalId: string;
+  isPrivate?: boolean;
 }): Promise<{ secureUrl: string; publicId: string }> {
-  const { file, userId, withdrawalId } = params;
+  const { file, userId, withdrawalId, isPrivate } = params;
 
   // Validar tipo de archivo
   const isImage = file.mimetype.startsWith('image/');
@@ -134,6 +172,23 @@ export class CloudinaryService {
   const resourceType: 'image' | 'raw' = isImage ? 'image' : 'raw';
   const folder = `hunboli/users/${userId}/withdrawals/${withdrawalId}`;
   const publicId = `proof_${Date.now()}`;
+
+  if (isPrivate) {
+    const uploaded = await this.uploadPrivate({
+      file,
+      folder,
+      publicId,
+      resourceType,
+    });
+
+    const signedUrl = this.getSignedUrl({
+      publicId: uploaded.publicId,
+      resourceType: uploaded.resourceType,
+      expiresInSeconds: 10 * 60,
+    });
+
+    return { secureUrl: signedUrl, publicId: uploaded.publicId };
+  }
 
   // Subida a Cloudinary
   return new Promise((resolve, reject) => {
@@ -154,4 +209,59 @@ export class CloudinaryService {
     uploadStream.end(file.buffer);
   });
 }
+
+  async uploadPrivate(params: {
+    file: Express.Multer.File;
+    folder: string;
+    publicId: string;
+    resourceType: 'image' | 'video' | 'raw';
+  }): Promise<{ publicId: string; resourceType: 'image' | 'video' | 'raw'; bytes: number; format?: string }> {
+    const { file, folder, publicId, resourceType } = params;
+
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder,
+          public_id: publicId,
+          resource_type: resourceType,
+          type: 'authenticated',
+        },
+        (error, result) => {
+          if (error || !result?.public_id) {
+            return reject(
+              new InternalServerErrorException(
+                'No se pudo subir el archivo a Cloudinary.',
+              ),
+            );
+          }
+
+          resolve({
+            publicId: result.public_id,
+            resourceType: resourceType,
+            bytes: result.bytes ?? 0,
+            format: result.format,
+          });
+        },
+      );
+
+      uploadStream.end(file.buffer);
+    });
+  }
+
+  getSignedUrl(params: {
+    publicId: string;
+    resourceType: 'image' | 'video' | 'raw';
+    expiresInSeconds: number;
+  }): string {
+    const { publicId, resourceType, expiresInSeconds } = params;
+    const expiresAt = Math.floor(Date.now() / 1000) + Math.max(1, expiresInSeconds);
+
+    return cloudinary.url(publicId, {
+      resource_type: resourceType,
+      type: 'authenticated',
+      sign_url: true,
+      expires_at: expiresAt,
+      secure: true,
+    });
+  }
 }
