@@ -19,6 +19,7 @@ type UploadConfig = {
   publicId: string;
   resourceType: 'image' | 'video';
   allowedMimes: string[];
+  allowedExts?: string[];
   maxBytes: number;
 };
 
@@ -101,7 +102,17 @@ export class KycService {
     const user = await this.getUserOrThrow(userId);
     const config = this.getUploadConfig(type);
 
-    if (!config.allowedMimes.includes(file.mimetype)) {
+    const mime = file.mimetype || '';
+    const filename = file.originalname?.toLowerCase() ?? '';
+    const ext = filename.includes('.') ? filename.split('.').pop() ?? '' : '';
+    const mimeAllowed = mime
+      ? config.allowedMimes.some(
+          (allowed) => mime === allowed || mime.startsWith(`${allowed};`),
+        )
+      : false;
+    const extAllowed =
+      !mime && config.allowedExts ? config.allowedExts.includes(ext) : false;
+    if (!mimeAllowed && !extAllowed) {
       throw new BadRequestException('Tipo de archivo no permitido');
     }
     if (file.size > config.maxBytes) {
@@ -245,7 +256,13 @@ export class KycService {
         docType: KycDocumentType.LIVENESS_VIDEO,
         publicId: 'liveness_video',
         resourceType: 'video',
-        allowedMimes: ['video/mp4', 'video/webm'],
+        allowedMimes: [
+          'video/webm',
+          'video/mp4',
+          'video/quicktime',
+          'video/3gpp',
+        ],
+        allowedExts: ['webm', 'mp4', 'mov', '3gp'],
         maxBytes: 50 * 1024 * 1024,
       };
     }
