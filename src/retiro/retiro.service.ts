@@ -42,7 +42,6 @@ export class RetiroService {
 
     const referenceCode = `RET-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const monto_minimo = this.getmount_minimo();
-    console.log('monto minimo', monto_minimo)
     const amount = Number(dto.amount);
     const ratesource = this.getrate_source();
 
