@@ -103,20 +103,48 @@ export class KycService {
     const config = this.getUploadConfig(type);
 
     const mime = file.mimetype || '';
+    const baseMime = mime.split(';')[0]?.trim().toLowerCase() ?? '';
     const filename = file.originalname?.toLowerCase() ?? '';
     const ext = filename.includes('.') ? filename.split('.').pop() ?? '' : '';
-    const mimeAllowed = mime
-      ? config.allowedMimes.some(
-          (allowed) => mime === allowed || mime.startsWith(`${allowed};`),
-        )
+    const treatAsEmptyMime =
+      !baseMime ||
+      baseMime === 'application/octet-stream' ||
+      baseMime === 'text/plain';
+    console.log('[KYC validate]', {
+      type,
+      baseMime,
+      rawMime: mime,
+      ext,
+      size: file.size,
+      resourceType: config.resourceType,
+    });
+
+    const mimeExplicitAllowed = baseMime
+      ? config.allowedMimes.some((allowed) => baseMime === allowed)
       : false;
-    const extAllowed =
-      !mime && config.allowedExts ? config.allowedExts.includes(ext) : false;
-    if (!mimeAllowed && !extAllowed) {
-      throw new BadRequestException('Tipo de archivo no permitido');
-    }
-    if (file.size > config.maxBytes) {
-      throw new BadRequestException('Archivo demasiado grande');
+
+    if (config.resourceType === 'video') {
+      const videoByMime = !!baseMime && baseMime.startsWith('video/');
+      const videoByExt =
+        treatAsEmptyMime && config.allowedExts
+          ? config.allowedExts.includes(ext)
+          : false;
+      if (!(videoByMime || mimeExplicitAllowed || videoByExt)) {
+        throw new BadRequestException(
+          `Invalid video type: ${baseMime || ext || 'unknown'}`,
+        );
+      }
+      if (file.size > config.maxBytes) {
+        throw new BadRequestException(`Video too large: ${file.size}`);
+      }
+    } else {
+      const imageByMime = !!baseMime && baseMime.startsWith('image/');
+      if (!(imageByMime || mimeExplicitAllowed)) {
+        throw new BadRequestException('Tipo de archivo no permitido');
+      }
+      if (file.size > config.maxBytes) {
+        throw new BadRequestException('Archivo demasiado grande');
+      }
     }
 
     const folder = this.buildKycFolder(user, request.id);
@@ -229,14 +257,20 @@ export class KycService {
   }
 
   private getUploadConfig(type: string): UploadConfig {
-    const normalized = String(type || '').toLowerCase();
+    const normalized = String(type || '').trim().toLowerCase();
 
     if (normalized === 'id-front') {
       return {
         docType: KycDocumentType.ID_FRONT,
         publicId: 'id_front',
         resourceType: 'image',
-        allowedMimes: ['image/jpeg', 'image/png', 'image/webp'],
+        allowedMimes: [
+          'image/jpeg',
+          'image/png',
+          'image/webp',
+          'image/heic',
+          'image/heif',
+        ],
         maxBytes: 10 * 1024 * 1024,
       };
     }
@@ -246,7 +280,13 @@ export class KycService {
         docType: KycDocumentType.ID_BACK,
         publicId: 'id_back',
         resourceType: 'image',
-        allowedMimes: ['image/jpeg', 'image/png', 'image/webp'],
+        allowedMimes: [
+          'image/jpeg',
+          'image/png',
+          'image/webp',
+          'image/heic',
+          'image/heif',
+        ],
         maxBytes: 10 * 1024 * 1024,
       };
     }

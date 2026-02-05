@@ -47,6 +47,13 @@ export class KycController {
     if (!user?.userId) {
       throw new BadRequestException('Usuario no autenticado');
     }
+    console.log('[KYC upload]', {
+      type,
+      fileNull: !file,
+      mimetype: file?.mimetype,
+      originalname: file?.originalname,
+      size: file?.size,
+    });
     return this.kycService.uploadDocument(user.userId, requestId, type, file);
   }
 

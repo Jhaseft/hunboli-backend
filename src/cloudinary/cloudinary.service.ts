@@ -225,6 +225,8 @@ export class CloudinaryService {
           public_id: publicId,
           resource_type: resourceType,
           type: 'authenticated',
+          overwrite: true,
+          invalidate: true,
         },
         (error, result) => {
           if (error || !result?.public_id) {
@@ -252,8 +254,9 @@ export class CloudinaryService {
     publicId: string;
     resourceType: 'image' | 'video' | 'raw';
     expiresInSeconds: number;
+    version?: number;
   }): string {
-    const { publicId, resourceType, expiresInSeconds } = params;
+    const { publicId, resourceType, expiresInSeconds, version } = params;
     const expiresAt = Math.floor(Date.now() / 1000) + Math.max(1, expiresInSeconds);
 
     return cloudinary.url(publicId, {
@@ -262,6 +265,7 @@ export class CloudinaryService {
       sign_url: true,
       expires_at: expiresAt,
       secure: true,
+      ...(version ? { version } : {}),
     });
   }
 }

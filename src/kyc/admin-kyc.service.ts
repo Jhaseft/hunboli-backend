@@ -130,10 +130,23 @@ export class AdminKycService {
         uploadedAt: true,
         resourceType: true,
       },
-      orderBy: { docType: 'asc' },
     });
 
-    const documents = docs.map((doc) => ({
+    const latestByType = new Map<KycDocumentType, (typeof docs)[number]>();
+    for (const doc of docs) {
+      const existing = latestByType.get(doc.docType);
+      if (!existing) {
+        latestByType.set(doc.docType, doc);
+        continue;
+      }
+      const existingTime = existing.uploadedAt?.getTime() ?? 0;
+      const docTime = doc.uploadedAt?.getTime() ?? 0;
+      if (docTime >= existingTime) {
+        latestByType.set(doc.docType, doc);
+      }
+    }
+
+    const documents = Array.from(latestByType.values()).map((doc) => ({
       docType: doc.docType,
       publicId: doc.publicId,
       mimeType: doc.mimeType,
@@ -144,6 +157,9 @@ export class AdminKycService {
         publicId: doc.publicId,
         resourceType: doc.resourceType as 'image' | 'video' | 'raw',
         expiresInSeconds: 600,
+        version: doc.uploadedAt
+          ? doc.uploadedAt.getTime()
+          : undefined,
       }),
     }));
 
