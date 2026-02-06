@@ -1,6 +1,7 @@
 import { Controller, Get,UseGuards } from '@nestjs/common';
 import { RateService } from './rate.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+
 @Controller('rate')
 export class RateController {
   constructor(private readonly rateService: RateService) {}
