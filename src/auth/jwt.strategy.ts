@@ -13,7 +13,7 @@ interface JwtPayload {
   isVerified: boolean;
   walletAddress: string;
 }
-
+ 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
