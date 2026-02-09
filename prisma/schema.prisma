@@ -241,6 +241,25 @@ model BlacklistEntry {
   @@map("blacklist_entries")
 }
 
+model CompanyBankAccount {
+  id            String       @id @default(uuid())
+  currency      FiatCurrency    // Moneda a la que aplica esta cuenta (BOB / PEN)
+  
+  bankName      String       //banco X
+  accountHolder String       //titular de la cuenta
+  accountNumber String       //numero de cuenta 
+  cci           String?      //útil para Perú cuenta interbancaria
+  qrImageUrl    String?     // QR estático 
+  qrPublicId    String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@map("company_bank_accounts")
+  @@unique([currency])      // 1 cuenta por moneda 
+  @@index([currency])       // búsquedas rápidas por moneda
+  @@index([bankName])
+}
+
 enum ContractEventType {
   MINTED
   BURNED
