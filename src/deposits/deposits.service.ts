@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
@@ -94,6 +95,15 @@ export class DepositsService {
       );
     }
 
+    const company = await this.prisma.companyBankAccount.findUnique({
+      where: { currency },
+    });
+    if (!company) {
+      throw new ConflictException(
+        `No hay cuenta bancaria configurada para ${currency}`,
+      );
+    }
+
     const expectedBOBH = bobEquivalent; // 1:1 con BOB (en equivalente BOB)
 
     const { feeRate, serviceFee, totalAmount } = calculateDepositFees({
@@ -160,9 +170,12 @@ export class DepositsService {
 
           instructions: {
             title: 'Transferencia bancaria',
-            bankName: 'Banco X',
-            accountName: 'HUNBOLI SRL',
-            accountNumber: '123456789',
+            bankName: company.bankName,
+            accountName: company.accountHolder,
+            accountNumber: company.accountNumber,
+            cci: company.cci ?? null,
+            qrImageUrl: company.qrImageUrl ?? null,
+            qrPublicId: company.qrPublicId ?? null,
             note:
               deposit.currency === 'PEN' && deposit.rateExpiresAt
                 ? `Usa esta referencia en el pago: ${deposit.referenceCode}. Tipo de cambio fijado hasta: ${deposit.rateExpiresAt.toISOString()}`
