@@ -253,7 +253,7 @@ enum ContractEventType {
   ADDED_TO_BLACKLIST
   REMOVED_FROM_BLACKLIST
   TOKENS_RECOVERED
-  TRANSFER // Transferencias P2P entre usuarios
+  TRANSFER  // Transferencias P2P entre usuarios
 }
 
 model CompanyBankAccount {
