@@ -75,12 +75,12 @@ export class DepositsService {
     if (currency === FiatCurrency.BOB) {
       bobEquivalent = amount; // 1:1
     } else {
-      const r = this.ratesService.getPenToBobRate(); // { rate: Decimal, source, updatedAt, cacheSeconds }
+      const r = await this.ratesService.getPenToBobRate(); // { rate: Decimal, source, updatedAt, cacheSeconds }
 
       rateUsed = r.rate;
       rateSource = r.source;
 
-      rateQuotedAt = new Date();
+      rateQuotedAt = new Date(r.updatedAt);
       rateExpiresAt = new Date(
         rateQuotedAt.getTime() + this.RATE_LOCK_MINUTES * 60_000,
       );
