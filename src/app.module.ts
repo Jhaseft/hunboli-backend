@@ -13,6 +13,7 @@ import { BanksModule } from './banks/banks.module';
 import { RatesModule } from './rates/rates.module';
 import { DepositsModule } from './deposits/deposits.module';
 import { BankAccountsModule } from './bank-accounts/bank-accounts.module';
+import { CompanyBankAccountsModule } from './company-bank-accounts/company-bank-accounts.module';
 import { AdminDepositsModule } from './admin-deposits/admin-deposits.module';
 import { RetiroModule } from './retiro/retiro.module';
 import { VerificationModule } from './verification/verification.module';
@@ -62,6 +63,7 @@ import { P2PModule } from './p2-p/p2-p.module';
     RatesModule,
     DepositsModule,
     BankAccountsModule,
+    CompanyBankAccountsModule,
     AdminDepositsModule,
     RetiroModule,
     VerificationModule,
