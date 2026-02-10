@@ -66,6 +66,9 @@ export class BankAccountsService {
       if (error?.code === 'P2025') {
         throw new NotFoundException('La cuenta bancaria no existe');
       }
+      if (error?.code === 'P2003') {
+        throw new NotFoundException('La cuenta bancaria no puede ser eliminada porque está asociada a transacciones');
+      }
       throw error;
     }
   }

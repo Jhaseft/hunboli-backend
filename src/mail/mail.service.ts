@@ -3,21 +3,40 @@ import { MailerService } from '@nestjs-modules/mailer';
 
 @Injectable()
 export class MailService {
-  constructor(private mailerService: MailerService) {}
+  constructor(private readonly mailerService: MailerService) {}
+
+  // ========================================================
+  // COMO CREAR UN NUEVO EMAIL:
+  // 1. Copia cualquier .hbs de src/mail/templates/
+  // 2. Cambia el titulo (h2), el texto y el boton
+  // 3. Crea una funcion aqui abajo siguiendo el mismo patron
+  // Las variables que pongas en context: {} las usas en el .hbs con {{variable}}
+  // Es obligatorio  siempre poner el year y el subject si no se rompera layout del email dinamico
+  // ========================================================
 
   async sendPasswordReset(email: string, resetLink: string) {
-    const url = resetLink;
-
     await this.mailerService.sendMail({
       to: email,
       subject: 'Recuperación de contraseña',
-      // Opción A: HTML directo (rápido para probar)
-      html: `
-        <h1>Recuperar contraseña - HUNBOLI</h1>
-        <p>Haz clic en el siguiente enlace para cambiar tu contraseña:</p>
-        <a href="${url}">Cambiar contraseña</a>
-        <p>Este enlace expira en 1 hora.</p>
-      `,
+      template: 'password-reset',
+      context: {
+        subject: 'Recuperación de contraseña',
+        url: resetLink,
+        year: new Date().getFullYear(),
+      },
+    });
+  }
+
+  async sendEmailConfirmation(email: string, confirmLink: string) {
+    await this.mailerService.sendMail({
+      to: email,
+      subject: 'Confirma tu correo electrónico',
+      template: 'email-confirmation',
+      context: {
+        subject: 'Confirma tu correo electrónico',
+        url: confirmLink,
+        year: new Date().getFullYear(),
+      },
     });
   }
 

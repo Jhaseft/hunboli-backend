@@ -8,6 +8,14 @@ import { AuthModule } from './auth/auth.module';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
 import { join } from 'path';
+import { readFileSync } from 'fs';
+import * as Handlebars from 'handlebars';
+
+// Registrar layout base para emails (se usa en cada template con {{#> base}} ... {{/base}})
+Handlebars.registerPartial(
+  'base',
+  readFileSync(join(__dirname, 'mail', 'templates', 'layouts', 'base.hbs'), 'utf8'),
+);
 import { MailModule } from './mail/mail.module';
 import { BanksModule } from './banks/banks.module';
 import { RatesModule } from './rates/rates.module';
@@ -52,7 +60,7 @@ import { CacheModule } from '@nestjs/cache-manager';
         from: '"No Reply" <noreply@tuapp.com>',
       },
       template: {
-        dir: join(__dirname, 'templates'), // Carpeta donde guardas los HTML
+        dir: join(__dirname,'mail','templates'), // Carpeta donde guardas los HTML
         adapter: new HandlebarsAdapter(),
         options: {
           strict: true,
