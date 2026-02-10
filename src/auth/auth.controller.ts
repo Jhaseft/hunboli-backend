@@ -20,13 +20,15 @@ import type { Response } from 'express';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) { }
+  constructor(private readonly authService: AuthService,
+  ) { }
 
   // 1. REGISTRO (Sign Up)
   // Ruta: POST /auth/signup
   @Post('signup')
   async signup(@Body() createUserDto: CreateUserDto) {
     // Llama al servicio que hashea la password y guarda en la BD
+
     return this.authService.register(createUserDto);
   }
 

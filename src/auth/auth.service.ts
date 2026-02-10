@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -7,6 +7,9 @@ import { v4 as uuidv4 } from 'uuid';
 import { UserEntity } from '../users/entities/user.entity';
 import { ConfigService } from '@nestjs/config';
 import { MailService } from 'src/mail/mail.service';
+import { randomInt } from 'crypto';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
 
 @Injectable()
 export class AuthService {
@@ -15,6 +18,7 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private mailService: MailService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache  ,
   ) { }
 
   async register(createUserDto: CreateUserDto) {
@@ -146,5 +150,26 @@ export class AuthService {
   async googleLogin(user: any) {
     // Llama a tu lógica de generar JWT que ya tienes
     return this.login(user);
+  }
+
+  //Funcion para enviar codigo de verificacion
+  async sendVerificationCode(email: string){
+    const n = randomInt(0, 1000000);
+    //convertir a string y rellenar con ceros a la izquierda
+    const code = n.toString().padStart(6, '0');
+    //guardar en cache con expiracion de 5 minutos
+    await this.cacheManager.set(`otp_${email}`, code, 300000);
+    //enviar correo
+    await this.mailService.send6DigitCode(email, code);
+    return { message: 'Código de verificación enviado, expira en 5 minutos' };
+  }
+
+  async verifyCode(email: string, code: string){
+    const cachedCode = await this.cacheManager.get(`otp_${email}`);
+    if (cachedCode === code) {
+      await this.cacheManager.del(`otp_${email}`);
+      return { verified: true };
+    }
+    return { verified: false };
   }
 }

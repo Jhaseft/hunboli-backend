@@ -24,6 +24,7 @@ import { KycModule } from './kyc/kyc.module';
 import { HistorialRetiroModule } from './historial-retiro/historial-retiro.module';
 import { ExchangeRateModule } from './exchange-rate/exchange-rate.module';
 import { P2PModule } from './p2-p/p2-p.module';
+import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
   imports: [
@@ -73,6 +74,7 @@ import { P2PModule } from './p2-p/p2-p.module';
     HistorialRetiroModule,
     ExchangeRateModule,
     P2PModule,
+    CacheModule.register({ isGlobal: true }),
   ],
   controllers: [],
   providers: [],
