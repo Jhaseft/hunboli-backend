@@ -8,6 +8,7 @@ import {
   UseGuards,
   Body,
   BadRequestException,
+  ConflictException,
   Patch,
   Request,
 } from '@nestjs/common';
@@ -75,6 +76,12 @@ export class UsersController {
     if (!validUser) {
       throw new BadRequestException('Contraseña incorrecta');
     }
+    // Verificar si la wallet ya está vinculada a otra cuenta
+    const existingUser = await this.usersService.findOneByWalletAddress(body.walletAddress);
+    if (existingUser && existingUser.id !== user.userId) {
+      throw new ConflictException('Esta billetera ya está vinculada a otra cuenta');
+    }
+
     // Actualizar la dirección de la billetera en el perfil del usuario
     const updatedUser = await this.usersService.update(user.userId, {
       walletAddress: body.walletAddress,

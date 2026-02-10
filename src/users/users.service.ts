@@ -48,7 +48,14 @@ export class UsersService {
     });
   }
 
-  // 3. BUSCAR POR ID (Usado para ver perfil)
+  // 3. BUSCAR POR WALLET ADDRESS
+  async findOneByWalletAddress(walletAddress: string): Promise<User | null> {
+    return this.prisma.user.findUnique({
+      where: { walletAddress },
+    });
+  }
+
+  // 4. BUSCAR POR ID (Usado para ver perfil)
   async findOneById(id: string): Promise<User | null> {
     return this.prisma.user.findUnique({
       where: { id },
