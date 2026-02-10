@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   InternalServerErrorException,
@@ -74,12 +75,12 @@ export class DepositsService {
     if (currency === FiatCurrency.BOB) {
       bobEquivalent = amount; // 1:1
     } else {
-      const r = this.ratesService.getPenToBobRate(); // { rate: Decimal, source, updatedAt, cacheSeconds }
+      const r = await this.ratesService.getPenToBobRate(); // { rate: Decimal, source, updatedAt, cacheSeconds }
 
       rateUsed = r.rate;
       rateSource = r.source;
 
-      rateQuotedAt = new Date();
+      rateQuotedAt = new Date(r.updatedAt);
       rateExpiresAt = new Date(
         rateQuotedAt.getTime() + this.RATE_LOCK_MINUTES * 60_000,
       );
@@ -91,6 +92,15 @@ export class DepositsService {
     if (bobEquivalent.lt(this.MIN_DEPOSIT_BOB)) {
       throw new BadRequestException(
         `Depósito mínimo: ${this.MIN_DEPOSIT_BOB.toString()} Bs (equivalente).`,
+      );
+    }
+
+    const company = await this.prisma.companyBankAccount.findUnique({
+      where: { currency },
+    });
+    if (!company) {
+      throw new ConflictException(
+        `No hay cuenta bancaria configurada para ${currency}`,
       );
     }
 
@@ -160,9 +170,12 @@ export class DepositsService {
 
           instructions: {
             title: 'Transferencia bancaria',
-            bankName: 'Banco X',
-            accountName: 'HUNBOLI SRL',
-            accountNumber: '123456789',
+            bankName: company.bankName,
+            accountName: company.accountHolder,
+            accountNumber: company.accountNumber,
+            cci: company.cci ?? null,
+            qrImageUrl: company.qrImageUrl ?? null,
+            qrPublicId: company.qrPublicId ?? null,
             note:
               deposit.currency === 'PEN' && deposit.rateExpiresAt
                 ? `Usa esta referencia en el pago: ${deposit.referenceCode}. Tipo de cambio fijado hasta: ${deposit.rateExpiresAt.toISOString()}`
