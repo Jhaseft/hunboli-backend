@@ -44,10 +44,12 @@ export class MailService {
     await this.mailerService.sendMail({
       to: email,
       subject: 'Código de verificación - HUNBOLI',
-      html: `
-        <h1>Código de verificación</h1>
-        <p>Tu código de verificación es: <strong>${code}</strong></p>
-      `,
+      template: 'verification-code',
+      context: {
+        subject: 'Código de verificación - HUNBOLI',
+        code,
+        year: new Date().getFullYear(),
+      },
     });
   }
 }
