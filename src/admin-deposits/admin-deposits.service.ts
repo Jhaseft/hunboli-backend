@@ -282,9 +282,16 @@ export class AdminDepositsService {
     const pendingCount = await this.prisma.fiatOperation.count({
       where: {
         type: FiatOperationType.DEPOSIT,
-        status: FiatOperationStatus.APPROVED,
+        OR: [
+          { status: FiatOperationStatus.PROOF_SUBMITTED },
+          { status: FiatOperationStatus.NEED_CORRECTION },
+          { status: FiatOperationStatus.RATE_EXPIRED },
+          { status: FiatOperationStatus.APPROVED },
+        ],
         deposit: {
-          safeTxHash: { equals: null },
+          safeTxHash: null,
+          mintTxHash: null,
+          mintedAt: null,
         },
       },
     });
