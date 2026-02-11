@@ -15,6 +15,7 @@ import { LoginDto } from './dto/login.dto';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { VerifySignupDto } from './dto/verify-signup.dto';
 import { AuthGuard } from '@nestjs/passport';
 import type { Response } from 'express';
 
@@ -30,6 +31,20 @@ export class AuthController {
     // Llama al servicio que hashea la password y guarda en la BD
 
     return this.authService.register(createUserDto);
+  }
+
+  // VERIFICAR CÓDIGO DE SIGNUP
+  @Post('verify-signup')
+  @HttpCode(HttpStatus.OK)
+  async verifySignup(@Body() verifySignupDto: VerifySignupDto) {
+    return this.authService.verifySignup(verifySignupDto.email, verifySignupDto.code);
+  }
+
+  // REENVIAR CÓDIGO DE VERIFICACIÓN
+  @Post('resend-code')
+  @HttpCode(HttpStatus.OK)
+  async resendCode(@Body() body: ForgotPasswordDto) {
+    return this.authService.resendSignupCode(body.email);
   }
 
   // 2. INICIO DE SESIÓN (Login)
