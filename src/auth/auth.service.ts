@@ -1,4 +1,4 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Inject, Injectable } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -22,20 +22,66 @@ export class AuthService {
   ) { }
 
   async register(createUserDto: CreateUserDto) {
-    //Encriptar la contraseña antes de guardar
     if (!createUserDto.password) {
       throw new BadRequestException('La contraseña es requerida para el registro');
     }
+
+    // Verificar que el email no exista ya en BD
+    const existingUser = await this.usersService.findOneByEmail(createUserDto.email);
+    if (existingUser) {
+      throw new ConflictException('El correo electrónico ya está registrado');
+    }
+
+    // Hashear la contraseña
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
 
-    const newUser = await this.usersService.create({
+    // Guardar datos del usuario en cache (no en BD)
+    const userData = {
       ...createUserDto,
       password: hashedPassword,
       isOnboardingCompleted: true,
-    });
+    };
+    await this.cacheManager.set(`signup_${createUserDto.email}`, userData, 300000);
+
+    // Enviar código de verificación al email
+    await this.sendVerificationCode(createUserDto.email);
+
+    return { message: 'Código de verificación enviado al correo electrónico' };
+  }
+
+  async verifySignup(email: string, code: string) {
+    // Verificar el código OTP
+    const result = await this.verifyCode(email, code);
+    if (!result.verified) {
+      throw new BadRequestException('Código de verificación inválido o expirado');
+    }
+
+    // Recuperar datos del usuario desde cache
+    const userData = await this.cacheManager.get<CreateUserDto>(`signup_${email}`);
+    if (!userData) {
+      throw new BadRequestException('Datos de registro expirados. Por favor, regístrate nuevamente.');
+    }
+
+    // Crear el usuario en BD
+    const newUser = await this.usersService.create(userData);
+
+    // Limpiar cache de signup
+    await this.cacheManager.del(`signup_${email}`);
+
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password: _, ...userWithoutPassword } = newUser;
     return this.login(userWithoutPassword);
+  }
+
+  async resendSignupCode(email: string) {
+    // Verificar que existan datos de registro pendientes
+    const userData = await this.cacheManager.get(`signup_${email}`);
+    if (!userData) {
+      throw new BadRequestException('No hay un registro pendiente para este correo');
+    }
+
+    // Reenviar código
+    return this.sendVerificationCode(email);
   }
 
   async validateUser(
