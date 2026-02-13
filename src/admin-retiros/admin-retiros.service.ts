@@ -19,7 +19,7 @@ interface JwtUser {
 @Injectable()
 export class AdminRetirosService {
   constructor(
-    private prisma: PrismaService, 
+    private prisma: PrismaService,
     private readonly cloudinary: CloudinaryService,
     private readonly safeService: SafeService,
     private readonly mailService: MailService,
@@ -150,6 +150,7 @@ export class AdminRetirosService {
       where: { id },
       include: {
         operation: true,
+        bankAccount: true,
       },
     });
 
@@ -168,9 +169,6 @@ export class AdminRetirosService {
     const walletAddress = userw.walletAddress;
     const totalAmount = withdrawal.operation.totalAmount;
 
-    console.log('totalAmount:', totalAmount);
-    console.log('walletAddress:', walletAddress);
-
     const fiatUpdateData: any = {
       status: dto.status,
       updatedAt: new Date(),
@@ -180,7 +178,6 @@ export class AdminRetirosService {
       fiatUpdateData.processedAt = new Date();
       fiatUpdateData.validatedAt = new Date();
       fiatUpdateData.validatedBy = { connect: { id: user.userId } };
-     
     }
 
     const operation = await this.prisma.fiatOperation.update({
@@ -188,24 +185,23 @@ export class AdminRetirosService {
       data: fiatUpdateData,
     });
 
+    /* ================= SAFE TRANSACTIONS ================= */
 
     if (dto.status === PrismaStatus.PROCESSED) {
-
       await this.safeService.proposeFinalizeRedemptionTransaction(
         walletAddress,
         totalAmount.toString()
       );
-
     }
 
     if (dto.status === PrismaStatus.REJECTED) {
-
       await this.safeService.proposeRejectRedemptionTransaction(
         walletAddress,
         totalAmount.toString()
       );
-
     }
+
+    /* ================= WITHDRAWAL UPDATE ================= */
 
     const withdrawalUpdateData: any = {};
 
@@ -214,6 +210,8 @@ export class AdminRetirosService {
       withdrawalUpdateData.paidAt = new Date();
     }
 
+    let proofUrl: string | undefined;
+
     if (file) {
       const uploadResult = await this.cloudinary.uploadWithdrawalProof({
         file,
@@ -221,10 +219,11 @@ export class AdminRetirosService {
         withdrawalId: id,
       });
 
+      proofUrl = uploadResult.secureUrl;
+
       withdrawalUpdateData.logProofUrl = uploadResult.secureUrl;
       withdrawalUpdateData.cloudinaryPublicId = uploadResult.publicId;
       withdrawalUpdateData.proofUploadedAt = new Date();
-      await this.mailService.sendRetiroConfirmation(file, user.email);
     }
 
     if (Object.keys(withdrawalUpdateData).length > 0) {
@@ -234,8 +233,31 @@ export class AdminRetirosService {
       });
     }
 
+    /* ================= EMAILS ================= */
+
+    if (dto.status === PrismaStatus.PROCESSED) {
+      await this.mailService.sendRetiroConfirmation(
+        dto.payoutTxRef,
+        userw.email,
+        withdrawal.bankAccount.accountNumber,
+        proofUrl,
+      );
+    }
+
+    if (dto.status === PrismaStatus.REJECTED) {
+      await this.mailService.sendRetiroRejected(
+        dto.payoutTxRef,
+        userw.email,
+        withdrawal.bankAccount.accountNumber,
+        totalAmount.toString(),
+      );
+    }
+
     return operation;
   }
+
+
+
 
   async getPendingCount() {
     try {

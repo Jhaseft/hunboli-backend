@@ -1,11 +1,11 @@
 {{#> base}}
 
 <h2 style="margin:0 0 20px 0; color:#1a1a2e; font-size:22px; font-weight:600;">
-  Retiro procesado exitosamente
+  Solicitud de retiro recibida
 </h2>
 
 <p style="margin:0 0 16px 0; color:#4a4a68; font-size:15px; line-height:1.6;">
-  Tu solicitud de retiro fue procesada correctamente.
+  Hemos recibido tu solicitud de retiro y está siendo revisada.
 </p>
 
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" 
@@ -13,36 +13,37 @@
   <tr>
     <td style="color:#1a1a2e; font-size:14px; line-height:1.8;">
       
+      <strong>Código de referencia:</strong><br/>
+      {{referenceCode}}
+      <br/><br/>
+
       <strong>Cuenta destino:</strong><br/>
       {{bankAccount}}
       <br/><br/>
 
-      {{#if payoutTxRef}}
-        <strong>Referencia de transacción:</strong><br/>
-        {{payoutTxRef}}
-      {{/if}}
+      <strong>Monto solicitado:</strong><br/>
+      {{amount}}
+      <br/><br/>
+
+      <strong>Comisión:</strong><br/>
+      {{serviceFee}}
+      <br/><br/>
+
+      <strong>Total debitado:</strong><br/>
+      {{totalAmount}}
 
     </td>
   </tr>
 </table>
 
-{{#if proofUrl}}
-  <p style="margin:20px 0 10px 0; font-size:14px; color:#1a1a2e;">
-    <strong>Comprobante de pago:</strong>
-  </p>
-
-  <img 
-    src="{{proofUrl}}" 
-    alt="Comprobante de pago"
-    style="max-width:100%; border-radius:10px; border:1px solid #e8e8ef;"
-  />
-{{/if}}
-
 <hr style="border:none; border-top:1px solid #e8e8ef; margin:30px 0 20px 0;" />
 
 <p style="margin:0; color:#4a4a68; font-size:14px;">
-  Puedes usar la referencia para rastrear el movimiento si aplica.
+  Te notificaremos por correo cuando el retiro sea procesado.
 </p>
 
+<p style="margin:20px 0 0 0; color:#b0b0c0; font-size:12px;">
+  © {{year}} - Todos los derechos reservados.
+</p>
 
 {{/base}}

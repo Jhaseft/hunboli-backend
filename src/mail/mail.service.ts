@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
 import { StringToBytesOpts } from 'viem';
+import { Subject } from 'rxjs';
 
 @Injectable()
 export class MailService {
-  constructor(private readonly mailerService: MailerService) {}
+  constructor(private readonly mailerService: MailerService) { }
 
   // ========================================================
   // COMO CREAR UN NUEVO EMAIL:
@@ -28,18 +29,85 @@ export class MailService {
     });
   }
 
-  async sendRetiroConfirmation(file: Express.Multer.File, email: string) {
-    await this.mailerService.sendMail({
-      to: email,
-      subject: 'Cancelacion exitosa de retiro',
-      template: 'retiro-confirmation',
-      context: {
-        subject: 'Cancelacion exitosa de retiro',
-        fileName: file.originalname,
-        year: new Date().getFullYear(),
-      },
-    });
+  async sendRetiroConfirmationRequest(data: {
+    email: string;
+    bankAccount: string;
+    amount: string;
+    serviceFee: string;
+    totalAmount: string;
+    referenceCode: string;
+  }) {
+    try {
+      await this.mailerService.sendMail({
+        to: data.email,
+        subject: 'Hemos recibido tu solicitud de retiro',
+        template: 'retiro-pending',
+        context: {
+          bankAccount: data.bankAccount,
+          subject: 'Hemos recibido tu solicitud de retiro',
+          amount: data.amount,
+          serviceFee: data.serviceFee,
+          totalAmount: data.totalAmount,
+          referenceCode: data.referenceCode,
+          year: new Date().getFullYear(),
+        },
+      });
+    } catch (error) {
+      console.log(error);
+    }
   }
+
+
+
+  async sendRetiroConfirmation(
+    payoutTxRef: string | undefined,
+    email: string,
+    bankAccount: string,
+    proofUrl?: string,
+  ) {
+    try {
+      await this.mailerService.sendMail({
+        to: email,
+        subject: 'Cancelación en cuenta exitosa',
+        template: 'retiro-confirmation',
+        context: {
+          payoutTxRef: payoutTxRef ?? 'No especificado',
+          subject: 'Cancelación en cuenta exitosa',
+          bankAccount,
+          proofUrl: proofUrl ?? null,
+          year: new Date().getFullYear(),
+        },
+      });
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  async sendRetiroRejected(
+    payoutTxRef: string | undefined,
+    email: string,
+    bankAccount: string,
+    totalAmount?: string,
+  ) {
+    try {
+      await this.mailerService.sendMail({
+        to: email,
+        subject: 'Retiro Rechazado',
+        template: 'retiro-reject',
+        context: {
+          payoutTxRef: payoutTxRef ?? 'No especificado',
+          subject: 'Retiro Rechazado',
+          bankAccount,
+          totalAmount: totalAmount ?? null,
+          year: new Date().getFullYear(),
+        },
+      });
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+
 
   async send6DigitCode(email: string, code: string) {
     await this.mailerService.sendMail({
