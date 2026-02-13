@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
+import { StringToBytesOpts } from 'viem';
 
 @Injectable()
 export class MailService {
@@ -27,14 +28,14 @@ export class MailService {
     });
   }
 
-  async sendEmailConfirmation(email: string, confirmLink: string) {
+  async sendRetiroConfirmation(file: Express.Multer.File, email: string) {
     await this.mailerService.sendMail({
       to: email,
-      subject: 'Confirma tu correo electrónico',
-      template: 'email-confirmation',
+      subject: 'Cancelacion exitosa de retiro',
+      template: 'retiro-confirmation',
       context: {
-        subject: 'Confirma tu correo electrónico',
-        url: confirmLink,
+        subject: 'Cancelacion exitosa de retiro',
+        fileName: file.originalname,
         year: new Date().getFullYear(),
       },
     });

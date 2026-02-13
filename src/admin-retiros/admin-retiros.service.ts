@@ -8,6 +8,7 @@ import { UpdateAdminRetiroDto } from './dto/update-admin-retiro.dto';
 import { FiatOperationStatus as PrismaStatus } from '@prisma/client';
 import { CloudinaryService } from 'src/cloudinary/cloudinary.service';
 import { SafeService } from 'src/safe/safe.service';
+import { MailService } from 'src/mail/mail.service';
 
 interface JwtUser {
   userId: string;
@@ -18,9 +19,10 @@ interface JwtUser {
 @Injectable()
 export class AdminRetirosService {
   constructor(
-    private prisma: PrismaService,
+    private prisma: PrismaService, 
     private readonly cloudinary: CloudinaryService,
     private readonly safeService: SafeService,
+    private readonly mailService: MailService,
   ) { }
 
 
@@ -178,6 +180,7 @@ export class AdminRetirosService {
       fiatUpdateData.processedAt = new Date();
       fiatUpdateData.validatedAt = new Date();
       fiatUpdateData.validatedBy = { connect: { id: user.userId } };
+     
     }
 
     const operation = await this.prisma.fiatOperation.update({
@@ -221,6 +224,7 @@ export class AdminRetirosService {
       withdrawalUpdateData.logProofUrl = uploadResult.secureUrl;
       withdrawalUpdateData.cloudinaryPublicId = uploadResult.publicId;
       withdrawalUpdateData.proofUploadedAt = new Date();
+      await this.mailService.sendRetiroConfirmation(file, user.email);
     }
 
     if (Object.keys(withdrawalUpdateData).length > 0) {
