@@ -6,12 +6,15 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma.service';
 import { CreateRetiroDto } from './dto/create-retiro.dto';
-
+import { RateService } from '../rate/rate.service';
+import { MailService } from 'src/mail/mail.service';
 @Injectable()
 export class RetiroService {
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
+    private rateService: RateService,
+    private mailService: MailService,
   ) { }
 
   private getComisionMinima(): number {
@@ -22,9 +25,6 @@ export class RetiroService {
     return Number(this.config.get('PORCENTAJE'));
   }
 
-  private getRateBobToPen(): number {
-    return Number(this.config.get('BOB_TO_PEN_RATE'));
-  }
 
   private getRateBobToBobh(): number {
     return Number(this.config.get('BOB_TO_BOBH'));
@@ -115,53 +115,72 @@ export class RetiroService {
           },
         });
 
-        return { fiatOperation, withdrawalDetail };
-      });
+        await this.mailService.sendRetiroConfirmationRequest({
+          email: user.email,
+          bankAccount: bankAccount.accountNumber,
+          amount: amount.toString(),
+          serviceFee: comisionCalculada.toString(),
+          totalAmount: totalAmount.toString(),
+          referenceCode,
+        });
 
-      return {
-        success: true,
-        fiatOperation: {
-          ...result.fiatOperation,
-          id: result.fiatOperation.id.toString(),
-        },
-        withdrawalDetail: {
-          ...result.withdrawalDetail,
-          operationId: result.withdrawalDetail.operationId.toString(),
-          bankAccountId: result.withdrawalDetail.bankAccountId.toString(),
-        },
-      };
-    } catch (error) {
-      console.error('Error creando retiro:', error);
-      throw error;
-    }
+
+      return { fiatOperation, withdrawalDetail };
+    });
+
+    return {
+      success: true,
+      fiatOperation: {
+        ...result.fiatOperation,
+        id: result.fiatOperation.id.toString(),
+      },
+      withdrawalDetail: {
+        ...result.withdrawalDetail,
+        operationId: result.withdrawalDetail.operationId.toString(),
+        bankAccountId: result.withdrawalDetail.bankAccountId.toString(),
+      },
+    };
+  } catch(error) {
+    console.error('Error creando retiro:', error);
+    throw error;
   }
+}
 
   private validateCurrencyByCountry(currency: string, country: string) {
-    const rules = {
-      BOB: 'Bolivia',
-      PEN: 'PERU',
-    };
+  const rules = {
+    BOB: 'Bolivia',
+    PEN: 'PERU',
+  };
 
-    if (rules[currency] && rules[currency] !== country) {
-      throw new BadRequestException(
-        `La cuenta bancaria es de ${country} y no admite retiros en ${currency}`,
-      );
-    }
+  if (rules[currency] && rules[currency] !== country) {
+    throw new BadRequestException(
+      `La cuenta bancaria es de ${country} y no admite retiros en ${currency}`,
+    );
   }
+}
 
   private calculateConversion(currency: string, amount: number) {
-    if (currency === 'PEN') {
-      const rate = this.getRateBobToPen();
-      return {
-        rateUsed: rate,
-        fiatSent: amount * rate,
-      };
-    }
 
-    const rate = this.getRateBobToBobh();
+  const rateData = this.rateService.GetTipoCambioActual();
+
+  if (!rateData) {
+    throw new BadRequestException('Tipo de cambio no disponible');
+  }
+
+  if (currency === 'PEN') {
+    const rate = rateData.conversion.BOB_PEN.valor;
+    // 1 BOB = X PEN
     return {
       rateUsed: rate,
       fiatSent: amount * rate,
     };
   }
+
+  // 1 BOB = X BOBH
+  const rate = this.getRateBobToBobh();
+  return {
+    rateUsed: rate,
+    fiatSent: amount,
+  };
+}
 }
