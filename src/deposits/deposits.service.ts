@@ -58,11 +58,19 @@ export class DepositsService {
       throw new BadRequestException('Monto inválido');
     }
 
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { email: true, firstName: true, isFirstMint: true },
-    });
+    const [user, existingDepositsCount] = await Promise.all([
+      this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true, firstName: true },
+      }),
+      this.prisma.fiatOperation.count({
+        where: { userId, type: FiatOperationType.DEPOSIT },
+      }),
+    ]);
     if (!user) throw new BadRequestException('Usuario no encontrado');
+
+    // true solo si este es el primer depósito que el usuario crea
+    const isFirstDeposit = existingDepositsCount === 0;
 
     const amount = new Prisma.Decimal(dto.amount);
 
@@ -156,7 +164,7 @@ export class DepositsService {
         const displayStatus = this.displayStatus(deposit.status, deposit.deposit);
 
         // Notificar al usuario sobre el gas airdrop en su primer depósito (fire-and-forget)
-        if (user.isFirstMint) {
+        if (isFirstDeposit) {
           void this.mailService.sendFirstMintAirdropNotification({
             email: user.email,
             firstName: user.firstName ?? 'Usuario',
