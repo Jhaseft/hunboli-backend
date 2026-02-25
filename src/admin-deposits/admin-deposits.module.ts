@@ -3,11 +3,13 @@ import { PrismaModule } from '../prisma.module';
 import { SafeModule } from '../safe/safe.module';
 import { AdminDepositsController } from './admin-deposits.controller';
 import { AdminMintsController } from './admin-mints.controller';
-import { AdminDepositsService } from './admin-deposits.service';
+import { AdminDepositQueryService } from './admin-deposit-query.service';
+import { AdminDepositReviewService } from './admin-deposit-review.service';
+import { AdminMintProposalService } from './admin-mint-proposal.service';
 
 @Module({
   imports: [PrismaModule, SafeModule],
   controllers: [AdminDepositsController, AdminMintsController],
-  providers: [AdminDepositsService],
+  providers: [AdminDepositQueryService, AdminDepositReviewService, AdminMintProposalService],
 })
 export class AdminDepositsModule {}

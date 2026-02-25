@@ -13,7 +13,9 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
-import { DepositsService } from './deposits.service';
+import { DepositCreateService } from './deposit-create.service';
+import { DepositProofService } from './deposit-proof.service';
+import { DepositQueryService } from './deposit-query.service';
 import { CreateDepositDto } from './dto/create-deposit.dto';
 import { ListMyDepositsQueryDto } from './dto/list-my-deposits.dto';
 import { KycVerified } from '../auth/decorators/kyc-verified.decorator';
@@ -21,14 +23,18 @@ import { KycVerifiedGuard } from '../auth/guards/kyc-verified.guard';
 
 @Controller('deposits')
 export class DepositsController {
-  constructor(private readonly depositsService: DepositsService) {}
+  constructor(
+    private readonly createService: DepositCreateService,
+    private readonly proofService: DepositProofService,
+    private readonly queryService: DepositQueryService,
+  ) {}
 
   @UseGuards(AuthGuard('jwt'), KycVerifiedGuard)
   @KycVerified()
   @Post()
   async create(@Req() req: any, @Body() dto: CreateDepositDto) {
     const userId = req.user?.userId;
-    return this.depositsService.createDeposit(userId, dto);
+    return this.createService.createDeposit(userId, dto);
   }
 
   // historial del usuario con cursor pagination
@@ -36,7 +42,7 @@ export class DepositsController {
   @Get('my')
   async myDeposits(@Req() req: any, @Query() q: ListMyDepositsQueryDto) {
     const userId = req.user?.userId;
-    return this.depositsService.listMyDeposits(userId, q);
+    return this.queryService.listMyDeposits(userId, q);
   }
 
   @UseGuards(AuthGuard('jwt'), KycVerifiedGuard)
@@ -63,6 +69,6 @@ export class DepositsController {
     @UploadedFile() file: Express.Multer.File
   ) {
     const userId = req.user?.userId;
-    return this.depositsService.uploadProof(userId, id, file);
+    return this.proofService.uploadProof(userId, id, file);
   }
 }

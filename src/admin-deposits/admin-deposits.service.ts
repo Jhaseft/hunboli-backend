@@ -1,11 +1,15 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { FiatOperationStatus, FiatOperationType, Prisma, UserRole } from '@prisma/client';
-import { PrismaService } from '../prisma.service';
-import { SafeService } from '../safe/safe.service';
-import { AdminDecisionDto, AdminDecisionAction } from './dto/decision.dto';
-import { ListAdminDepositsQueryDto, AdminDepositStatusFilter } from './dto/list-admin-deposits.dto';
-import { ListAdminMintsQueryDto } from './dto/list-admin-mints.dto';
-import { RequestCorrectionDto } from './dto/request-correction.dto';
+/**
+ * Este servicio fue dividido en tres archivos de responsabilidad única:
+ *
+ *   admin-deposit-query.service.ts   → list, getOne, listMints, getPendingMintsCount
+ *   admin-deposit-review.service.ts  → decide, requestCorrection
+ *   admin-mint-proposal.service.ts   → proposeMint
+ *
+ * Los helpers compartidos (assertAdminOrOperator, isMinted, displayStatus, toMaxDecimals)
+ * viven en admin-deposit.helpers.ts
+ *
+ * Este archivo puede eliminarse una vez confirmada la migración.
+ */
 
 type JwtUser = { userId: string; role: UserRole; email?: string };
 
