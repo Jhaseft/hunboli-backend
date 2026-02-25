@@ -287,6 +287,81 @@ export class ListenerService implements OnModuleInit{
     );
   }
 
+  // ─── CONSULTA PAGINADA DE EVENT LOGS ────────────────────────
+  async findEventLogs(params: {
+    page: number;
+    limit: number;
+    eventType?: ContractEventType;
+    userAddress?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }) {
+    const page = params.page > 0 ? params.page : 1;
+    const limit = Math.min(Math.max(params.limit || 10, 1), 50);
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+
+    if (params.eventType) {
+      where.eventType = params.eventType;
+    }
+
+    if (params.userAddress) {
+      where.userAddress = {
+        equals: params.userAddress,
+        mode: 'insensitive',
+      };
+    }
+
+    if (params.dateFrom || params.dateTo) {
+      where.createdAt = {};
+      if (params.dateFrom) {
+        where.createdAt.gte = new Date(params.dateFrom);
+      }
+      if (params.dateTo) {
+        const endDate = new Date(params.dateTo);
+        endDate.setHours(23, 59, 59, 999);
+        where.createdAt.lte = endDate;
+      }
+    }
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.eventLog.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          eventType: true,
+          txHash: true,
+          blockNumber: true,
+          userAddress: true,
+          fromAddress: true,
+          toAddress: true,
+          amount: true,
+          createdAt: true,
+          processedAt: true,
+        },
+      }),
+      this.prisma.eventLog.count({ where }),
+    ]);
+
+    const serializedItems = items.map((item) => ({
+      ...item,
+      blockNumber: item.blockNumber.toString(),
+      amount: item.amount?.toString() ?? null,
+    }));
+
+    return {
+      items: serializedItems,
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
   // ─── STATUS PÚBLICO (para el controller) ───────────────────
   getStatus() {
     return {
