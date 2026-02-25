@@ -368,7 +368,7 @@ export class AdminDepositsService {
     const op = await this.prisma.fiatOperation.findFirst({
       where: { id, type: FiatOperationType.DEPOSIT },
       include: {
-        user: { select: { walletAddress: true } },
+        user: { select: { walletAddress: true, isFirstMint: true } },
         deposit: true,
       },
     });
@@ -398,15 +398,23 @@ export class AdminDepositsService {
     if (op.deposit.safeTxHash) {
       throw new BadRequestException('Este depósito ya tiene un mint propuesto en Safe.');
     }
- 
+
     // 6) Monto: expectedBOBH -> string con max 6 decimales
     const expected = op.deposit.expectedBOBH.toString();
     const amount6 = this.toMaxDecimals(expected, 6);
- 
-    // 7) Llamada a Safe
-    const safeTxHash = await this.safeService.proposeMintTransaction(to, amount6);
 
-    // 8) Guardar safeTxHash en deposit_details
+    const isFirstMint = op.user.isFirstMint;
+
+    // 7) Llamada a Safe: batch (mint + gas airdrop 0.01) si es el primer minteo, simple si no
+    const safeTxHash = isFirstMint
+      ? await this.safeService.proposeMintWithAirdropBatch(to, amount6)
+      : await this.safeService.proposeMintTransaction(to, amount6);
+
+    this.logger.log(
+      `proposeMint: depositId=${op.id}, isFirstMint=${isFirstMint}, safeTxHash=${safeTxHash}`,
+    );
+
+    // 8) Guardar safeTxHash y marcar isFirstMint=false si aplica
     const updated = await this.prisma.fiatOperation.update({
       where: { id: op.id },
       data: {
@@ -416,6 +424,11 @@ export class AdminDepositsService {
             safeProposedAt: new Date(),
           },
         },
+        ...(isFirstMint && {
+          user: {
+            update: { isFirstMint: false },
+          },
+        }),
       },
       include: { deposit: true },
     });
@@ -424,6 +437,7 @@ export class AdminDepositsService {
       depositId: updated.id,
       safeTxHash,
       safeProposedAt: updated.deposit?.safeProposedAt?.toISOString() ?? null,
+      gasAirdropIncluded: isFirstMint,
     };
   }
 
