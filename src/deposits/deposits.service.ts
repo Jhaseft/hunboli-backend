@@ -14,6 +14,7 @@ import { randomBytes } from 'crypto';
 import { RatesService } from '../rates/rates.service';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { calculateDepositFees } from './fee.utils';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class DepositsService {
@@ -21,6 +22,7 @@ export class DepositsService {
     private readonly prisma: PrismaService,
     private readonly ratesService: RatesService,
     private readonly cloudinaryService: CloudinaryService,
+    private readonly mailService: MailService,
   ) {}
 
   private isMinted(
@@ -55,6 +57,12 @@ export class DepositsService {
     if (!Number.isFinite(dto.amount) || dto.amount <= 0) {
       throw new BadRequestException('Monto inválido');
     }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, firstName: true, isFirstMint: true },
+    });
+    if (!user) throw new BadRequestException('Usuario no encontrado');
 
     const amount = new Prisma.Decimal(dto.amount);
 
@@ -146,6 +154,19 @@ export class DepositsService {
         });
 
         const displayStatus = this.displayStatus(deposit.status, deposit.deposit);
+
+        // Notificar al usuario sobre el gas airdrop en su primer depósito (fire-and-forget)
+        if (user.isFirstMint) {
+          void this.mailService.sendFirstMintAirdropNotification({
+            email: user.email,
+            firstName: user.firstName ?? 'Usuario',
+            referenceCode: deposit.referenceCode,
+            amount: deposit.amount.toString(),
+            currency: deposit.currency,
+            expectedBOBH: deposit.deposit?.expectedBOBH?.toString() ?? '0',
+          });
+        }
+
         return {
           depositId: deposit.id,
           status: displayStatus,
