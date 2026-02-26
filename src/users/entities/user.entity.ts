@@ -58,6 +58,9 @@ export class UserEntity implements User {
   @ApiProperty()
   isVerified: boolean;
 
+  @ApiProperty()
+  isFirstMint: boolean;
+
   constructor(partial: Partial<UserEntity>) {
     Object.assign(this, partial);
   }
