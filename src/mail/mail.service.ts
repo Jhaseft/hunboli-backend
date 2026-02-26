@@ -109,6 +109,34 @@ export class MailService {
 
 
 
+  async sendFirstMintAirdropNotification(data: {
+    email: string;
+    firstName: string;
+    referenceCode: string;
+    amount: string;
+    currency: string;
+    expectedBOBH: string;
+  }) {
+    try {
+      await this.mailerService.sendMail({
+        to: data.email,
+        subject: '¡Bienvenido! Tu primer depósito incluye 0.01 BNB de gas',
+        template: 'first-mint-airdrop',
+        context: {
+          subject: '¡Bienvenido! Tu primer depósito incluye 0.01 BNB de gas',
+          firstName: data.firstName,
+          referenceCode: data.referenceCode,
+          amount: data.amount,
+          currency: data.currency,
+          expectedBOBH: data.expectedBOBH,
+          year: new Date().getFullYear(),
+        },
+      });
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
   async send6DigitCode(email: string, code: string) {
     await this.mailerService.sendMail({
       to: email,

@@ -1,0 +1,90 @@
+{{#> base}}
+
+<h2 style="margin:0 0 20px 0; color:#1a1a2e; font-size:22px; font-weight:600;">
+  ¡Bienvenido a Hunboli, {{firstName}}!
+</h2>
+
+<p style="margin:0 0 16px 0; color:#4a4a68; font-size:15px; line-height:1.6;">
+  Hemos recibido tu primera solicitud de depósito. Estamos muy contentos de tenerte con nosotros.
+</p>
+
+<!-- Airdrop banner -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+  style="background:linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%); border-radius:10px; margin:20px 0;">
+  <tr>
+    <td style="padding:24px 28px;">
+      <p style="margin:0 0 6px 0; color:#ffffff; font-size:13px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
+        Regalo de bienvenida
+      </p>
+      <p style="margin:0 0 10px 0; color:#ffffff; font-size:26px; font-weight:700;">
+        🎁 0.01 BNB de gas incluido
+      </p>
+      <p style="margin:0; color:#cfe0ff; font-size:14px; line-height:1.6;">
+        Por ser tu primer depósito, cuando tus tokens BOBH sean acuñados recibirás automáticamente
+        <strong style="color:#ffffff;">0.01 BNB</strong> directamente en tu wallet. Esto te permitirá
+        cubrir las comisiones de red (gas) desde el primer momento y solicitar redenciones si es que asi lo deseas.
+      </p>
+    </td>
+  </tr>
+</table>
+
+<!-- Detalles de la solicitud -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+  style="background:#f7f8fc; padding:20px; border-radius:10px; margin:20px 0;">
+  <tr>
+    <td style="color:#1a1a2e; font-size:14px; line-height:1.8;">
+
+      <strong>Código de referencia:</strong><br/>
+      {{referenceCode}}
+      <br/><br/>
+
+      <strong>Monto depositado:</strong><br/>
+      {{amount}} {{currency}}
+      <br/><br/>
+
+      <strong>BOBH a recibir:</strong><br/>
+      {{expectedBOBH}} BOBH
+
+    </td>
+  </tr>
+</table>
+
+<!-- Próximos pasos -->
+<p style="margin:20px 0 8px 0; color:#1a1a2e; font-size:15px; font-weight:600;">
+  ¿Qué sigue?
+</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+  <tr>
+    <td style="padding:6px 0; color:#4a4a68; font-size:14px; line-height:1.6;">
+      1. Realiza la transferencia bancaria con el código de referencia indicado.
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:6px 0; color:#4a4a68; font-size:14px; line-height:1.6;">
+      2. Sube tu comprobante de pago desde la plataforma.
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:6px 0; color:#4a4a68; font-size:14px; line-height:1.6;">
+      3. Nuestro equipo revisará y aprobará tu depósito.
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:6px 0; color:#4a4a68; font-size:14px; line-height:1.6;">
+      4. Recibirás tus BOBH <strong>y los 0.01 BNB de gas</strong> en tu wallet automáticamente.
+    </td>
+  </tr>
+</table>
+
+<hr style="border:none; border-top:1px solid #e8e8ef; margin:28px 0 20px 0;" />
+
+<p style="margin:0; color:#8888a0; font-size:13px; line-height:1.6;">
+  El airdrop de gas se entrega una única vez, junto con tu primer minteo de BOBH.
+  Si tienes alguna duda, contacta a nuestro equipo de soporte.
+</p>
+
+<p style="margin:20px 0 0 0; color:#b0b0c0; font-size:12px;">
+  © {{year}} - Todos los derechos reservados.
+</p>
+
+{{/base}}

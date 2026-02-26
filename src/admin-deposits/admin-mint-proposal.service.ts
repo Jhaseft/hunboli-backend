@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { FiatOperationStatus, FiatOperationType } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { SafeService } from '../safe/safe.service';
@@ -6,6 +6,8 @@ import { JwtUser, assertAdminOrOperator, isMinted, toMaxDecimals } from './admin
 
 @Injectable()
 export class AdminMintProposalService {
+  private readonly logger = new Logger(AdminMintProposalService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly safeService: SafeService,
@@ -17,7 +19,7 @@ export class AdminMintProposalService {
     const op = await this.prisma.fiatOperation.findFirst({
       where: { id, type: FiatOperationType.DEPOSIT },
       include: {
-        user: { select: { walletAddress: true } },
+        user: { select: { walletAddress: true, isFirstMint: true } },
         deposit: true,
       },
     });
@@ -29,12 +31,12 @@ export class AdminMintProposalService {
       throw new BadRequestException('Este depósito ya fue minteado/procesado.');
     }
 
-    // 2) Debe estar aprobado (recomendación)
+    // 2) Debe estar aprobado
     if (op.status !== FiatOperationStatus.APPROVED) {
       throw new BadRequestException('Solo se puede proponer mint cuando el depósito está APPROVED.');
     }
 
-    // 3) Debe existir comprobante (ustedes decidieron exigirlo siempre)
+    // 3) Debe existir comprobante
     if (!op.deposit.proofUrl) {
       throw new BadRequestException('No se puede proponer mint sin comprobante.');
     }
@@ -51,10 +53,18 @@ export class AdminMintProposalService {
     // 6) Monto: expectedBOBH -> string con max 6 decimales
     const amount6 = toMaxDecimals(op.deposit.expectedBOBH.toString(), 6);
 
-    // 7) Llamada a Safe
-    const safeTxHash = await this.safeService.proposeMintTransaction(to, amount6);
+    const isFirstMint = op.user.isFirstMint;
 
-    // 8) Guardar safeTxHash en deposit_details
+    // 7) Llamada a Safe: batch (mint + gas airdrop 0.01) si es el primer minteo, simple si no
+    const safeTxHash = isFirstMint
+      ? await this.safeService.proposeMintWithAirdropBatch(to, amount6)
+      : await this.safeService.proposeMintTransaction(to, amount6);
+
+    this.logger.log(
+      `proposeMint: depositId=${op.id}, isFirstMint=${isFirstMint}, safeTxHash=${safeTxHash}`,
+    );
+
+    // 8) Guardar safeTxHash y marcar isFirstMint=false si aplica
     const updated = await this.prisma.fiatOperation.update({
       where: { id: op.id },
       data: {
@@ -64,6 +74,11 @@ export class AdminMintProposalService {
             safeProposedAt: new Date(),
           },
         },
+        ...(isFirstMint && {
+          user: {
+            update: { isFirstMint: false },
+          },
+        }),
       },
       include: { deposit: true },
     });
@@ -72,6 +87,7 @@ export class AdminMintProposalService {
       depositId: updated.id,
       safeTxHash,
       safeProposedAt: updated.deposit?.safeProposedAt?.toISOString() ?? null,
+      gasAirdropIncluded: isFirstMint,
     };
   }
 }

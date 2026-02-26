@@ -6,9 +6,10 @@ import { DepositQueryService } from './deposit-query.service';
 import { PrismaModule } from '../prisma.module';
 import { RatesModule } from '../rates/rates.module';
 import { CloudinaryModule } from '../cloudinary/cloudinary.module';
+import { MailModule } from '../mail/mail.module';
 
 @Module({
-  imports: [PrismaModule, RatesModule, CloudinaryModule],
+  imports: [PrismaModule, RatesModule, CloudinaryModule, MailModule],
   controllers: [DepositsController],
   providers: [DepositCreateService, DepositProofService, DepositQueryService],
 })

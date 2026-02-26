@@ -25,6 +25,7 @@ model User {
   isGoogleAccount         Boolean                 @default(false)
   isOnboardingCompleted   Boolean                 @default(false)
   isVerified              Boolean                 @default(false)
+  isFirstMint             Boolean                 @default(true)
   bankAccounts            BankAccount[]
   fiatOperations          FiatOperation[]
   validatedFiatOperations FiatOperation[]         @relation("FiatOperationValidatedBy")
