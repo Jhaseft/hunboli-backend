@@ -64,4 +64,8 @@ export class UserEntity implements User {
   constructor(partial: Partial<UserEntity>) {
     Object.assign(this, partial);
   }
+  kycSessionId: string | null;
+  kycSessionExpiresAt: Date | null;
+  kycSimilarity: number | null;
+  kycLivenessScore: number | null;
 }
