@@ -58,7 +58,14 @@ export class UserEntity implements User {
   @ApiProperty()
   isVerified: boolean;
 
+  @ApiProperty()
+  isFirstMint: boolean;
+
   constructor(partial: Partial<UserEntity>) {
     Object.assign(this, partial);
   }
+  kycSessionId: string | null;
+  kycSessionExpiresAt: Date | null;
+  kycSimilarity: number | null;
+  kycLivenessScore: number | null;
 }

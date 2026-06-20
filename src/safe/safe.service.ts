@@ -120,15 +120,41 @@ export class SafeService implements OnModuleInit {
   }
 
   /**
+   * Propone un batch de mint() + transferencia nativa de gas airdrop (0.01 ETH) en un solo Safe tx.
+   * Se usa en el primer minteo del usuario para que tenga gas desde el inicio.
+   * @param to Direccion de la wallet destino (usuario)
+   * @param amount Cantidad de BOBH como string decimal (ej: "100.50")
+   * @returns safeTxHash de la propuesta creada
+   */
+  async proposeMintWithAirdropBatch(to: string, amount: string): Promise<string> {
+    const amountParsed = ethers.utils.parseUnits(amount, 6);
+    const mintData = this.mintInterface.encodeFunctionData('mint', [to, amountParsed]);
+
+    const mintTx: MetaTransactionData = {
+      to: this.contractAddress,
+      value: '0',
+      data: mintData,
+      operation: OperationType.Call,
+    };
+
+    const airdropTx: MetaTransactionData = {
+      to,
+      value: ethers.utils.parseEther('0.01').toString(),
+      data: '0x',
+      operation: OperationType.Call,
+    };
+
+    this.logger.log(
+      `Proposing batch (first mint): mint to=${to}, amount=${amount} BOBH + 0.01 gas airdrop`,
+    );
+
+    return this.proposeTransactions([mintTx, airdropTx]);
+  }
+
+  /**
    * Logica comun: crea, firma y propone una transaccion Safe con calldata al contrato HUNBOLI.
    */
   private async proposeContractTransaction(data: string): Promise<string> {
-    const protocolKit = await Safe.init({
-      provider: this.rpcUrl,
-      signer: this.proposerPrivateKey,
-      safeAddress: this.safeAddress,
-    });
-
     const txData: MetaTransactionData = {
       to: this.contractAddress,
       value: '0',
@@ -136,9 +162,21 @@ export class SafeService implements OnModuleInit {
       operation: OperationType.Call,
     };
 
-    const safeTransaction = await protocolKit.createTransaction({
-      transactions: [txData],
+    return this.proposeTransactions([txData]);
+  }
+
+  /**
+   * Logica base: crea, firma y propone un Safe tx con uno o multiples MetaTransactionData.
+   * Soporta batches nativamente via el array de transactions del Protocol Kit.
+   */
+  private async proposeTransactions(transactions: MetaTransactionData[]): Promise<string> {
+    const protocolKit = await Safe.init({
+      provider: this.rpcUrl,
+      signer: this.proposerPrivateKey,
+      safeAddress: this.safeAddress,
     });
+
+    const safeTransaction = await protocolKit.createTransaction({ transactions });
 
     const safeTxHash = await protocolKit.getTransactionHash(safeTransaction);
     const signature = await protocolKit.signHash(safeTxHash);
@@ -155,7 +193,9 @@ export class SafeService implements OnModuleInit {
       origin: 'HUNBOLI Backend',
     });
 
-    this.logger.log(`Transaction proposed successfully. safeTxHash=${safeTxHash}`);
+    this.logger.log(
+      `Transaction proposed successfully. txCount=${transactions.length}, safeTxHash=${safeTxHash}`,
+    );
     return safeTxHash;
   }
 }

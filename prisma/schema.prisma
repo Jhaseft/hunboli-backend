@@ -16,6 +16,10 @@ model User {
   country                 Country                 @default(BOLIVIA)
   walletAddress           String?                 @unique
   kycStatus               KycStatus               @default(UNVERIFIED)
+  kycSessionId            String?                 @unique
+  kycSessionExpiresAt     DateTime?
+  kycSimilarity           Float?
+  kycLivenessScore        Float?
   createdAt               DateTime                @default(now())
   updatedAt               DateTime                @updatedAt
   lastLogin               DateTime?
@@ -25,55 +29,14 @@ model User {
   isGoogleAccount         Boolean                 @default(false)
   isOnboardingCompleted   Boolean                 @default(false)
   isVerified              Boolean                 @default(false)
+  isFirstMint             Boolean                 @default(true)
   bankAccounts            BankAccount[]
   fiatOperations          FiatOperation[]
   validatedFiatOperations FiatOperation[]         @relation("FiatOperationValidatedBy")
-  kycDocuments            KycDocument[]
-  kycRequests             KycRequest[]            @relation("KycRequestUser")
   verification_requests   verification_requests[]
-  kycReviewedRequests     KycRequest[]            @relation("KycRequestReviewedBy")
   blacklistEntries        BlacklistEntry[]
 
   @@map("users")
-}
-
-model KycDocument {
-  id            String            @id @default(uuid())
-  userId        String
-  kycRequestId  String
-  docType       KycDocumentType
-  docUrl        String?           // legacy
-  publicId      String
-  folder        String
-  resourceType  KycResourceType
-  mimeType      String?
-  bytes         Int?
-  uploadedAt    DateTime?         @default(now())
-
-  user          User              @relation(fields: [userId], references: [id])
-  kycRequest    KycRequest        @relation(fields: [kycRequestId], references: [id])
-
-  @@unique([kycRequestId, docType])
-  @@index([kycRequestId])
-  @@map("kyc_documents")
-}
-
-model KycRequest {
-  id           String    @id @default(uuid())
-  userId       String
-  status       KycStatus @default(PENDING)
-  reviewNote   String?
-  reviewedById String?
-  reviewedAt   DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-
-  user        User  @relation("KycRequestUser", fields: [userId], references: [id])
-  reviewedBy  User? @relation("KycRequestReviewedBy", fields: [reviewedById], references: [id])
-
-  documents KycDocument[]
-
-  @@map("kyc_requests")
 }
 
 model FiatOperation {
@@ -296,18 +259,6 @@ enum KycStatus {
   REJECTED
   NEED_CORRECTION
   BLACKLISTED
-}
-
-enum KycDocumentType {
-  ID_FRONT
-  ID_BACK
-  LIVENESS_VIDEO
-}
-
-enum KycResourceType {
-  image
-  video
-  raw
 }
 
 enum Country {

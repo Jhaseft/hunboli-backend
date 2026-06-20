@@ -1,13 +1,16 @@
 import { Module } from '@nestjs/common';
 import { DepositsController } from './deposits.controller';
-import { DepositsService } from './deposits.service';
+import { DepositCreateService } from './deposit-create.service';
+import { DepositProofService } from './deposit-proof.service';
+import { DepositQueryService } from './deposit-query.service';
 import { PrismaModule } from '../prisma.module';
 import { RatesModule } from '../rates/rates.module';
 import { CloudinaryModule } from '../cloudinary/cloudinary.module';
+import { MailModule } from '../mail/mail.module';
 
 @Module({
-  imports: [PrismaModule, RatesModule, CloudinaryModule],
+  imports: [PrismaModule, RatesModule, CloudinaryModule, MailModule],
   controllers: [DepositsController],
-  providers: [DepositsService],
+  providers: [DepositCreateService, DepositProofService, DepositQueryService],
 })
 export class DepositsModule {}
