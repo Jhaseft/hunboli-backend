@@ -11,7 +11,7 @@ export class RateController {
   GetComision() {
     return this.rateService.GetCom();
   }
- 
+  
   @UseGuards(JwtAuthGuard)
   @Get('porcentaje')
   GetPorcentaje() {
